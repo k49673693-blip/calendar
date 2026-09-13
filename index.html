@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>日記＆ヘルスケア カレンダー</title>
-  <!-- Chart.js 読み込み -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --primary-color: #4a90e2;
@@ -16,6 +14,8 @@
       --annual-color: #d32f2f;
       --saturday-color: #1976d2;
       --sunday-holiday-color: #d32f2f;
+      --today-bg: #fffde7;
+      --today-border: #fbc02d;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -40,6 +40,9 @@
     .day-cell { min-height: 105px; background: #fff; border: 1px solid var(--border-color); border-radius: 5px; padding: 4px; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; }
     .day-cell:hover { background: #f0f7ff; }
     
+    /* 今日ハイライト */
+    .day-cell.is-today { background-color: var(--today-bg); border: 2px solid var(--today-border); }
+
     .date-num { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
     .date-num.sat { color: var(--saturday-color); }
     .date-num.sun-holiday { color: var(--sunday-holiday-color); }
@@ -69,7 +72,6 @@
     .btn-save { background: var(--primary-color); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
     .btn-cancel { background: #ccc; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 
-    /* 恒例行事・グラフ関連 */
     .annual-list { margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px; }
     .annual-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 0.85rem; }
     .btn-delete { background: #ff5252; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; }
@@ -77,6 +79,9 @@
     .span-selector { display: flex; gap: 5px; margin-bottom: 15px; }
     .span-btn { flex: 1; padding: 6px; border: 1px solid var(--primary-color); background: white; color: var(--primary-color); border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
     .span-btn.active { background: var(--primary-color); color: white; }
+
+    /* SVG グラフコンテナ */
+    #chart-container { width: 100%; height: 260px; border: 1px solid #eee; border-radius: 5px; background: #fafafa; }
   </style>
 </head>
 <body>
@@ -168,9 +173,7 @@
       <button class="span-btn" data-span="year">1年</button>
       <button class="span-btn" data-span="all">全期間</button>
     </div>
-    <div style="position: relative; height:300px; width:100%">
-      <canvas id="healthChart"></canvas>
-    </div>
+    <div id="chart-container"></div>
     <div class="modal-buttons">
       <button type="button" class="btn-cancel" id="close-graph-modal">閉じる</button>
     </div>
@@ -178,22 +181,20 @@
 </div>
 
 <script>
-  // --- 日本の祝日判定ロジック ---
+  // 祝日判定ロジック
   function getJapaneseHoliday(year, month, day) {
-    const mmdd = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const date = new Date(year, month - 1, day);
-    const dayOfWeek = date.getDay();
+    var mmdd = (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day;
+    var date = new Date(year, month - 1, day);
+    var dayOfWeek = date.getDay();
 
-    // 固定祝日
-    const fixedHolidays = {
+    var fixedHolidays = {
       '01-01': '元日', '02-11': '建国記念の日', '02-23': '天皇誕生日',
       '04-29': '昭和の日', '05-03': '憲法記念日', '05-04': 'みどりの日',
       '05-05': 'こどもの日', '08-11': '山の日', '11-03': '文化の日', '11-23': '勤労感謝の日'
     };
     if (fixedHolidays[mmdd]) return fixedHolidays[mmdd];
 
-    // ハッピーマンデー (第2月曜: 1月成人の日, 10月スポーツの日 / 第3月曜: 7月海の日, 9月敬老の日)
-    const nthMonday = Math.floor((day - 1) / 7) + 1;
+    var nthMonday = Math.floor((day - 1) / 7) + 1;
     if (dayOfWeek === 1) {
       if (month === 1 && nthMonday === 2) return '成人の日';
       if (month === 7 && nthMonday === 3) return '海の日';
@@ -201,156 +202,164 @@
       if (month === 10 && nthMonday === 2) return 'スポーツの日';
     }
 
-    // 春分・秋分の計算（正確な簡易計算式）
     if (month === 3) {
-      const vernal = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+      var vernal = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
       if (day === vernal) return '春分の日';
     }
     if (month === 9) {
-      const autumnal = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+      var autumnal = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
       if (day === autumnal) return '秋分の日';
     }
 
-    // 振替休日判定（日曜日の祝日の場合、翌月曜日が振替）
     if (dayOfWeek === 1) {
-      const prevDate = new Date(year, month - 1, day - 1);
-      const prevHoliday = getJapaneseHoliday(prevDate.getFullYear(), prevDate.getMonth() + 1, prevDate.getDate());
-      if (prevHoliday) {
-        return '振替休日';
-      }
+      var prevDate = new Date(year, month - 1, day - 1);
+      var prevHoliday = getJapaneseHoliday(prevDate.getFullYear(), prevDate.getMonth() + 1, prevDate.getDate());
+      if (prevHoliday) return '振替休日';
     }
     return null;
   }
 
-  // --- ストレージ処理 ---
-  const STORAGE_KEY_DAYS = 'calendar_diary_days';
-  const STORAGE_KEY_ANNUAL = 'calendar_diary_annual';
+  // ストレージ関連
+  var STORAGE_KEY_DAYS = 'calendar_diary_days';
+  var STORAGE_KEY_ANNUAL = 'calendar_diary_annual';
 
-  let currentDate = new Date();
-  let selectedDateStr = '';
-  let chartInstance = null;
-  let currentSpan = 'month';
+  var currentDate = new Date();
+  var today = new Date();
+  var selectedDateStr = '';
+  var currentSpan = 'month';
 
-  const getDayData = () => {
+  function getDayData() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY_DAYS) || '{}'); }
     catch(e) { return {}; }
-  };
-  const getAnnualData = () => {
+  }
+  function getAnnualData() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY_ANNUAL) || '[]'); }
     catch(e) { return []; }
-  };
-  const saveDayData = (data) => localStorage.setItem(STORAGE_KEY_DAYS, JSON.stringify(data));
-  const saveAnnualData = (data) => localStorage.setItem(STORAGE_KEY_ANNUAL, JSON.stringify(data));
+  }
+  function saveDayData(data) { localStorage.setItem(STORAGE_KEY_DAYS, JSON.stringify(data)); }
+  function saveAnnualData(data) { localStorage.setItem(STORAGE_KEY_ANNUAL, JSON.stringify(data)); }
 
-  // --- カレンダー描画 ---
+  // カレンダーを描画
   function renderCalendar() {
-    const calendarEl = document.getElementById('calendar');
-    const monthDisplay = document.getElementById('month-display');
+    var calendarEl = document.getElementById('calendar');
+    var monthDisplay = document.getElementById('month-display');
     if (!calendarEl || !monthDisplay) return;
 
     calendarEl.innerHTML = '';
 
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+    var year = currentDate.getFullYear();
+    var month = currentDate.getMonth();
 
-    monthDisplay.textContent = `${year}年 ${month + 1}月`;
+    monthDisplay.textContent = year + '年 ' + (month + 1) + '月';
 
     // 曜日ヘッダー
-    const daysOfWeek = [
+    var daysOfWeek = [
       { name: '日', class: 'sun' }, { name: '月', class: '' }, { name: '火', class: '' },
       { name: '水', class: '' }, { name: '木', class: '' }, { name: '金', class: '' }, { name: '土', class: 'sat' }
     ];
-    daysOfWeek.forEach(d => {
-      const header = document.createElement('div');
-      header.className = `day-header ${d.class}`;
+    daysOfWeek.forEach(function(d) {
+      var header = document.createElement('div');
+      header.className = 'day-header ' + d.class;
       header.textContent = d.name;
       calendarEl.appendChild(header);
     });
 
-    const firstDay = new Date(year, month, 1).getDay();
-    const lastDate = new Date(year, month + 1, 0).getDate();
+    var firstDay = new Date(year, month, 1).getDay();
+    var lastDate = new Date(year, month + 1, 0).getDate();
 
     // 空白セル
-    for (let i = 0; i < firstDay; i++) {
+    for (var i = 0; i < firstDay; i++) {
       calendarEl.appendChild(document.createElement('div'));
     }
 
-    const dayData = getDayData();
-    const annualData = getAnnualData();
+    var dayData = getDayData();
+    var annualData = getAnnualData();
 
-    // 日付セル生成
-    for (let date = 1; date <= lastDate; date++) {
-      const cell = document.createElement('div');
+    // 当日判定用の文字列
+    var todayYear = today.getFullYear();
+    var todayMonth = today.getMonth();
+    var todayDate = today.getDate();
+
+    // 日付セルを構築
+    for (var date = 1; date <= lastDate; date++) {
+      var cell = document.createElement('div');
       cell.className = 'day-cell';
-      
-      const monthStr = String(month + 1).padStart(2, '0');
-      const dateStr = String(date).padStart(2, '0');
-      const fullDateKey = `${year}-${monthStr}-${dateStr}`;
-      const mmddKey = `${monthStr}-${dateStr}`;
 
-      const cellDate = new Date(year, month, date);
-      const dayOfWeek = cellDate.getDay();
-      const holidayName = getJapaneseHoliday(year, month + 1, date);
+      // 今日の日付ハイライト判定
+      if (year === todayYear && month === todayMonth && date === todayDate) {
+        cell.classList.add('is-today');
+      }
 
-      // 日付テキストと土日祝の判定
-      const dateNum = document.createElement('div');
+      var monthStr = (month + 1 < 10 ? '0' : '') + (month + 1);
+      var dateStr = (date < 10 ? '0' : '') + date;
+      var fullDateKey = year + '-' + monthStr + '-' + dateStr;
+      var mmddKey = monthStr + '-' + dateStr;
+
+      var cellDate = new Date(year, month, date);
+      var dayOfWeek = cellDate.getDay();
+      var holidayName = getJapaneseHoliday(year, month + 1, date);
+
+      var dateNum = document.createElement('div');
       dateNum.className = 'date-num';
-      
+
       if (dayOfWeek === 0 || holidayName) {
         dateNum.classList.add('sun-holiday');
       } else if (dayOfWeek === 6) {
         dateNum.classList.add('sat');
       }
 
-      dateNum.innerHTML = `<span>${date}</span>` + (holidayName ? `<span class="holiday-name">${holidayName}</span>` : '');
+      dateNum.innerHTML = '<span>' + date + '</span>' + (holidayName ? '<span class="holiday-name">' + holidayName + '</span>' : '');
       cell.appendChild(dateNum);
 
-      // 1. 毎年恒例行事
-      annualData.filter(a => a.mmdd === mmddKey).forEach(a => {
-        const badge = document.createElement('div');
+      // 毎年恒例行事
+      annualData.filter(function(a) { return a.mmdd === mmddKey; }).forEach(function(a) {
+        var badge = document.createElement('div');
         badge.className = 'event-badge annual-badge';
-        badge.textContent = `★ ${a.title}`;
+        badge.textContent = '★ ' + a.title;
         cell.appendChild(badge);
       });
 
-      // 2. 通常予定
+      // 通常予定
       if (dayData[fullDateKey] && dayData[fullDateKey].event) {
-        const badge = document.createElement('div');
+        var badge = document.createElement('div');
         badge.className = 'event-badge regular-badge';
         badge.textContent = dayData[fullDateKey].event;
         cell.appendChild(badge);
       }
 
-      // 3. 体重・体脂肪
+      // 体重・体脂肪
       if (dayData[fullDateKey] && (dayData[fullDateKey].weight || dayData[fullDateKey].fat)) {
-        const healthBadge = document.createElement('div');
+        var healthBadge = document.createElement('div');
         healthBadge.className = 'health-badge';
-        const w = dayData[fullDateKey].weight ? `${dayData[fullDateKey].weight}kg` : '';
-        const f = dayData[fullDateKey].fat ? `${dayData[fullDateKey].fat}%` : '';
-        healthBadge.textContent = `⚖️ ${w} ${f}`.trim();
+        var w = dayData[fullDateKey].weight ? dayData[fullDateKey].weight + 'kg' : '';
+        var f = dayData[fullDateKey].fat ? dayData[fullDateKey].fat + '%' : '';
+        healthBadge.textContent = ('⚖️ ' + w + ' ' + f).trim();
         cell.appendChild(healthBadge);
       }
 
-      // 4. 日記
+      // 日記
       if (dayData[fullDateKey] && dayData[fullDateKey].diary) {
-        const diaryIndicator = document.createElement('div');
+        var diaryIndicator = document.createElement('div');
         diaryIndicator.className = 'diary-indicator';
         diaryIndicator.textContent = '📖 日記あり';
         cell.appendChild(diaryIndicator);
       }
 
-      cell.addEventListener('click', () => openDayModal(fullDateKey));
+      (function(key) {
+        cell.addEventListener('click', function() { openDayModal(key); });
+      })(fullDateKey);
+
       calendarEl.appendChild(cell);
     }
   }
 
-  // --- 日付モーダル ---
+  // 日付詳細モーダル
   function openDayModal(dateStr) {
     selectedDateStr = dateStr;
-    document.getElementById('modal-date-title').textContent = `${dateStr} の記録`;
+    document.getElementById('modal-date-title').textContent = dateStr + ' の記録';
     
-    const dayData = getDayData();
-    const info = dayData[dateStr] || {};
+    var dayData = getDayData();
+    var info = dayData[dateStr] || {};
 
     document.getElementById('event-input').value = info.event || '';
     document.getElementById('weight-input').value = info.weight || '';
@@ -360,20 +369,20 @@
     document.getElementById('day-modal').classList.add('active');
   }
 
-  document.getElementById('close-day-modal').addEventListener('click', () => {
+  document.getElementById('close-day-modal').addEventListener('click', function() {
     document.getElementById('day-modal').classList.remove('active');
   });
 
-  document.getElementById('day-form').addEventListener('submit', (e) => {
+  document.getElementById('day-form').addEventListener('submit', function(e) {
     e.preventDefault();
-    const dayData = getDayData();
-    const event = document.getElementById('event-input').value.trim();
-    const weight = document.getElementById('weight-input').value;
-    const fat = document.getElementById('fat-input').value;
-    const diary = document.getElementById('diary-input').value.trim();
+    var dayData = getDayData();
+    var event = document.getElementById('event-input').value.trim();
+    var weight = document.getElementById('weight-input').value;
+    var fat = document.getElementById('fat-input').value;
+    var diary = document.getElementById('diary-input').value.trim();
 
     if (event || weight || fat || diary) {
-      dayData[selectedDateStr] = { event, weight, fat, diary };
+      dayData[selectedDateStr] = { event: event, weight: weight, fat: fat, diary: diary };
     } else {
       delete dayData[selectedDateStr];
     }
@@ -383,23 +392,23 @@
     renderCalendar();
   });
 
-  // --- 恒例行事モーダル ---
-  document.getElementById('open-annual-modal').addEventListener('click', () => {
+  // 恒例行事モーダル
+  document.getElementById('open-annual-modal').addEventListener('click', function() {
     renderAnnualList();
     document.getElementById('annual-modal').classList.add('active');
   });
-  document.getElementById('close-annual-modal').addEventListener('click', () => {
+  document.getElementById('close-annual-modal').addEventListener('click', function() {
     document.getElementById('annual-modal').classList.remove('active');
   });
 
-  document.getElementById('annual-form').addEventListener('submit', (e) => {
+  document.getElementById('annual-form').addEventListener('submit', function(e) {
     e.preventDefault();
-    const mmdd = document.getElementById('annual-date').value.trim();
-    const title = document.getElementById('annual-title').value.trim();
+    var mmdd = document.getElementById('annual-date').value.trim();
+    var title = document.getElementById('annual-title').value.trim();
 
     if (mmdd && title) {
-      const annualData = getAnnualData();
-      annualData.push({ id: Date.now(), mmdd, title });
+      var annualData = getAnnualData();
+      annualData.push({ id: Date.now(), mmdd: mmdd, title: title });
       saveAnnualData(annualData);
 
       document.getElementById('annual-date').value = '';
@@ -410,105 +419,78 @@
   });
 
   function renderAnnualList() {
-    const container = document.getElementById('annual-items-container');
+    var container = document.getElementById('annual-items-container');
     container.innerHTML = '';
-    getAnnualData().forEach(item => {
-      const div = document.createElement('div');
+    getAnnualData().forEach(function(item) {
+      var div = document.createElement('div');
       div.className = 'annual-item';
-      div.innerHTML = `
-        <span>[${item.mmdd}] ${item.title}</span>
-        <button class="btn-delete" onclick="deleteAnnual(${item.id})">削除</button>
-      `;
+      div.innerHTML = '<span>[' + item.mmdd + '] ' + item.title + '</span>' +
+        '<button class="btn-delete" onclick="deleteAnnual(' + item.id + ')">削除</button>';
       container.appendChild(div);
     });
   }
 
   window.deleteAnnual = function(id) {
-    saveAnnualData(getAnnualData().filter(item => item.id !== id));
+    saveAnnualData(getAnnualData().filter(function(item) { return item.id !== id; }));
     renderAnnualList();
     renderCalendar();
   };
 
-  // --- グラフ機能 ---
-  document.getElementById('open-graph-modal').addEventListener('click', () => {
+  // グラフ機能（SVG独自描画）
+  document.getElementById('open-graph-modal').addEventListener('click', function() {
     document.getElementById('graph-modal').classList.add('active');
-    renderChart();
+    renderSvgChart();
   });
-  document.getElementById('close-graph-modal').addEventListener('click', () => {
+  document.getElementById('close-graph-modal').addEventListener('click', function() {
     document.getElementById('graph-modal').classList.remove('active');
   });
 
-  document.querySelectorAll('.span-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      document.querySelectorAll('.span-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.span-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      document.querySelectorAll('.span-btn').forEach(function(b) { b.classList.remove('active'); });
       e.target.classList.add('active');
       currentSpan = e.target.getAttribute('data-span');
-      renderChart();
+      renderSvgChart();
     });
   });
 
-  function renderChart() {
-    const dayData = getDayData();
-    let keys = Object.keys(dayData).sort();
+  function renderSvgChart() {
+    var container = document.getElementById('chart-container');
+    container.innerHTML = '';
 
-    if (keys.length === 0) {
-      if (chartInstance) chartInstance.destroy();
+    var dayData = getDayData();
+    var keys = Object.keys(dayData).sort();
+
+    var now = new Date();
+    if (currentSpan === 'week') {
+      var target = new Date(); target.setDate(now.getDate() - 7);
+      keys = keys.filter(function(k) { return new Date(k) >= target; });
+    } else if (currentSpan === 'month') {
+      var target = new Date(); target.setMonth(now.getMonth() - 1);
+      keys = keys.filter(function(k) { return new Date(k) >= target; });
+    } else if (currentSpan === 'year') {
+      var target = new Date(); target.setFullYear(now.getFullYear() - 1);
+      keys = keys.filter(function(k) { return new Date(k) >= target; });
+    }
+
+    var validData = keys.map(function(k) {
+      return {
+        date: k,
+        w: parseFloat(dayData[k].weight) || null,
+        f: parseFloat(dayData[k].fat) || null
+      };
+    }).filter(function(d) { return d.w !== null || d.f !== null; });
+
+    if (validData.length === 0) {
+      container.innerHTML = '<div style="text-align:center; padding-top:100px; color:#999;">データがありません</div>';
       return;
     }
 
-    // スパンフィルタリング
-    const now = new Date();
-    if (currentSpan === 'week') {
-      const target = new Date();
-      target.setDate(now.getDate() - 7);
-      keys = keys.filter(k => new Date(k) >= target);
-    } else if (currentSpan === 'month') {
-      const target = new Date();
-      target.setMonth(now.getMonth() - 1);
-      keys = keys.filter(k => new Date(k) >= target);
-    } else if (currentSpan === 'year') {
-      const target = new Date();
-      target.setFullYear(now.getFullYear() - 1);
-      keys = keys.filter(k => new Date(k) >= target);
-    }
+    var width = container.clientWidth || 600;
+    var height = 260;
+    var padding = 40;
 
-    const labels = keys;
-    const weightData = keys.map(k => dayData[k].weight || null);
-    const fatData = keys.map(k => dayData[k].fat || null);
+    var wValues = validData.map(function(d) { return d.w; }).filter(function(v) { return v !== null; });
+    var fValues = validData.map(function(d) { return d.f; }).filter(function(v) { return v !== null; });
 
-    const ctx = document.getElementById('healthChart').getContext('2d');
-    if (chartInstance) chartInstance.destroy();
-
-    chartInstance = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: '体重 (kg)',
-            data: weightData,
-            borderColor: '#1976d2',
-            backgroundColor: 'rgba(25, 118, 210, 0.1)',
-            spanGaps: true,
-            yAxisID: 'y'
-          },
-          {
-            label: '体脂肪率 (%)',
-            data: fatData,
-            borderColor: '#f57c00',
-            backgroundColor: 'rgba(245, 124, 0, 0.1)',
-            spanGaps: true,
-            yAxisID: 'y1'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { display: true },
-          y: {
-            type: 'linear',
-            display: true,
-            position: 'left',
-           
+    var minW = wValues.length ? Math.min.apply(nul
