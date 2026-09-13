@@ -78,7 +78,7 @@
     .span-selector { display: flex; gap: 5px; margin-bottom: 15px; }
     .span-btn { flex: 1; padding: 6px; border: 1px solid var(--primary-color); background: white; color: var(--primary-color); border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
     .span-btn.active { background: var(--primary-color); color: white; }
-    #chart-container { width: 100%; height: 260px; border: 1px solid #eee; border-radius: 5px; background: #fafafa; }
+    #chart-container { width: 100%; height: 260px; border: 1px solid #eee; border-radius: 5px; background: #fafafa; overflow: hidden; }
   </style>
 </head>
 <body>
@@ -150,7 +150,6 @@
 </div>
 
 <script>
-// エラーで停止しないよう、即時関数で全体を保護
 (function() {
   var currentDate = new Date();
   var today = new Date();
@@ -159,7 +158,6 @@
   var STORAGE_KEY_DAYS = 'calendar_diary_days';
   var STORAGE_KEY_ANNUAL = 'calendar_diary_annual';
 
-  // 要素を安全に取得・イベント付与する仕組み（これがないと環境によって落ちる）
   function safeAddEvent(id, eventType, callback) {
     var el = document.getElementById(id);
     if (el) { el.addEventListener(eventType, callback); }
@@ -180,10 +178,9 @@
     var mmdd = (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day;
     var fixedHolidays = { '01-01': '元日', '02-11': '建国記念の日', '02-23': '天皇誕生日', '04-29': '昭和の日', '05-03': '憲法記念日', '05-04': 'みどりの日', '05-05': 'こどもの日', '08-11': '山の日', '11-03': '文化の日', '11-23': '勤労感謝の日' };
     if (fixedHolidays[mmdd]) return fixedHolidays[mmdd];
-    return null; // ※簡易化してクラッシュを防ぐ仕様にしています
+    return null;
   }
 
-  // --- カレンダー描画メイン処理 ---
   function renderCalendar() {
     var calendarEl = document.getElementById('calendar');
     var monthDisplay = document.getElementById('month-display');
@@ -219,7 +216,6 @@
       var cell = document.createElement('div');
       cell.className = 'day-cell';
 
-      // ★今日の日付を判定してハイライト用のクラスを付与★
       if (year === ty && month === tm && date === td) {
         cell.classList.add('is-today');
       }
@@ -284,9 +280,91 @@
     renderAnnualList(); renderCalendar();
   };
 
+  // --- SVGグラフ描画処理（復活！） ---
+  function renderSvgChart() {
+    var container = document.getElementById('chart-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    var dayData = getDayData();
+    var keys = Object.keys(dayData).sort();
+
+    var now = new Date();
+    if (currentSpan === 'week') {
+      var target = new Date(); target.setDate(now.getDate() - 7);
+      keys = keys.filter(function(k) { return new Date(k) >= target; });
+    } else if (currentSpan === 'month') {
+      var target = new Date(); target.setMonth(now.getMonth() - 1);
+      keys = keys.filter(function(k) { return new Date(k) >= target; });
+    } else if (currentSpan === 'year') {
+      var target = new Date(); target.setFullYear(now.getFullYear() - 1);
+      keys = keys.filter(function(k) { return new Date(k) >= target; });
+    }
+
+    var validData = keys.map(function(k) {
+      return {
+        date: k,
+        w: parseFloat(dayData[k].weight) || null,
+        f: parseFloat(dayData[k].fat) || null
+      };
+    }).filter(function(d) { return d.w !== null || d.f !== null; });
+
+    if (validData.length === 0) {
+      container.innerHTML = '<div style="text-align:center; padding-top:100px; color:#999;">データがありません</div>';
+      return;
+    }
+
+    var width = container.clientWidth || 600;
+    var height = 260;
+    var padding = 40;
+
+    var wValues = validData.map(function(d) { return d.w; }).filter(function(v) { return v !== null; });
+    var fValues = validData.map(function(d) { return d.f; }).filter(function(v) { return v !== null; });
+
+    var minW = wValues.length ? Math.min.apply(null, wValues) - 1 : 0;
+    var maxW = wValues.length ? Math.max.apply(null, wValues) + 1 : 100;
+    var minF = fValues.length ? Math.min.apply(null, fValues) - 1 : 0;
+    var maxF = fValues.length ? Math.max.apply(null, fValues) + 1 : 50;
+
+    // SVGタグの生成（スマホでもはみ出さないように viewBox を使用）
+    var svgHtml = '<svg width="100%" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" style="background:#fff;">';
+    
+    svgHtml += '<line x1="' + padding + '" y1="' + (height - padding) + '" x2="' + (width - padding) + '" y2="' + (height - padding) + '" stroke="#ccc" />';
+    svgHtml += '<text x="' + padding + '" y="20" fill="#1976d2" font-size="12">■ 体重(kg)</text>';
+    svgHtml += '<text x="' + (padding + 100) + '" y="20" fill="#f57c00" font-size="12">■ 体脂肪率(%)</text>';
+
+    var stepX = validData.length > 1 ? (width - padding * 2) / (validData.length - 1) : 0;
+    var pointsW = [];
+    var pointsF = [];
+
+    validData.forEach(function(d, i) {
+      var x = validData.length === 1 ? width / 2 : padding + i * stepX;
+
+      if (d.w !== null) {
+        var yW = (height - padding) - ((d.w - minW) / (maxW - minW || 1)) * (height - padding * 2);
+        pointsW.push(x + ',' + yW);
+        svgHtml += '<circle cx="' + x + '" cy="' + yW + '" r="4" fill="#1976d2" />';
+      }
+      if (d.f !== null) {
+        var yF = (height - padding) - ((d.f - minF) / (maxF - minF || 1)) * (height - padding * 2);
+        pointsF.push(x + ',' + yF);
+        svgHtml += '<circle cx="' + x + '" cy="' + yF + '" r="4" fill="#f57c00" />';
+      }
+    });
+
+    if (pointsW.length > 1) {
+      svgHtml += '<polyline points="' + pointsW.join(' ') + '" fill="none" stroke="#1976d2" stroke-width="2" />';
+    }
+    if (pointsF.length > 1) {
+      svgHtml += '<polyline points="' + pointsF.join(' ') + '" fill="none" stroke="#f57c00" stroke-width="2" />';
+    }
+
+    svgHtml += '</svg>';
+    container.innerHTML = svgHtml;
+  }
+
   // --- アプリ初期化 ---
   function initApp() {
-    // 確実なイベント紐付け
     safeAddEvent('prev-month', 'click', function(){ currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); });
     safeAddEvent('next-month', 'click', function(){ currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); });
     
@@ -306,14 +384,28 @@
       if(m&&t) { var d = getAnnualData(); d.push({id:Date.now(), mmdd:m, title:t}); safeSetStorage(STORAGE_KEY_ANNUAL, d); renderAnnualList(); renderCalendar(); }
     });
 
-    safeAddEvent('open-graph-modal', 'click', function(){ document.getElementById('graph-modal').classList.add('active'); });
+    // グラフモーダルを開いた時にグラフを描画する
+    safeAddEvent('open-graph-modal', 'click', function(){ 
+      document.getElementById('graph-modal').classList.add('active'); 
+      renderSvgChart(); // ← これがグラフを描画する命令です
+    });
     safeAddEvent('close-graph-modal', 'click', function(){ document.getElementById('graph-modal').classList.remove('active'); });
 
-    // 最初に1回だけ描画
+    // 期間選択ボタンの切り替え処理
+    var spanBtns = document.querySelectorAll('.span-btn');
+    spanBtns.forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        spanBtns.forEach(function(b) { b.classList.remove('active'); });
+        e.target.classList.add('active');
+        currentSpan = e.target.getAttribute('data-span');
+        renderSvgChart(); // 期間を変えたら再描画
+      });
+    });
+
     renderCalendar();
   }
 
-  // 画面が完全に読み込まれてからスクリプトを動かす（真っ白になるのを防ぐ最重要処理）
+  // 画面が完全に読み込まれてから実行する
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
   } else {
