@@ -25,9 +25,11 @@
     
     header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 15px; background: var(--card-bg); padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     header h1 { font-size: 1.3rem; }
+    .nav-group { display: flex; align-items: center; gap: 5px; }
     .header-btns { display: flex; gap: 8px; }
     .btn { padding: 8px 12px; background: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
-    .nav-btn { background: #eee; color: #333; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+    .nav-btn { background: #eee; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold; }
+    .nav-btn:hover { background: #ddd; }
 
     /* カレンダーグリッド */
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; background: var(--card-bg); padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -81,7 +83,7 @@
 
 <div class="container">
   <header>
-    <div>
+    <div class="nav-group">
       <button class="nav-btn" id="prev-month">&lt;</button>
       <span id="month-display" style="font-size: 1.1rem; font-weight: bold; margin: 0 8px;"></span>
       <button class="nav-btn" id="next-month">&gt;</button>
@@ -176,7 +178,7 @@
 </div>
 
 <script>
-  // --- 日本の祝日判定ロジック (簡易・広範対応) ---
+  // --- 日本の祝日判定ロジック ---
   function getJapaneseHoliday(year, month, day) {
     const mmdd = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const date = new Date(year, month - 1, day);
@@ -190,7 +192,7 @@
     };
     if (fixedHolidays[mmdd]) return fixedHolidays[mmdd];
 
-    // ハッピーマンデー (第2月曜: 成人の日(1月), 体育の日/スポーツの日(10月) / 第3月曜: 海の日(7月), 敬老の日(9月))
+    // ハッピーマンデー (第2月曜: 1月成人の日, 10月スポーツの日 / 第3月曜: 7月海の日, 9月敬老の日)
     const nthMonday = Math.floor((day - 1) / 7) + 1;
     if (dayOfWeek === 1) {
       if (month === 1 && nthMonday === 2) return '成人の日';
@@ -199,7 +201,7 @@
       if (month === 10 && nthMonday === 2) return 'スポーツの日';
     }
 
-    // 春分・秋分 (概算簡易計算)
+    // 春分・秋分の計算（正確な簡易計算式）
     if (month === 3) {
       const vernal = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
       if (day === vernal) return '春分の日';
@@ -209,10 +211,11 @@
       if (day === autumnal) return '秋分の日';
     }
 
-    // 振替休日判定 (前日が日曜かつ祝日の場合)
+    // 振替休日判定（日曜日の祝日の場合、翌月曜日が振替）
     if (dayOfWeek === 1) {
-      const prev = new Date(year, month - 1, day - 1);
-      if (getJapaneseHoliday(prev.getFullYear(), prev.getMonth() + 1, prev.getDate())) {
+      const prevDate = new Date(year, month - 1, day - 1);
+      const prevHoliday = getJapaneseHoliday(prevDate.getFullYear(), prevDate.getMonth() + 1, prevDate.getDate());
+      if (prevHoliday) {
         return '振替休日';
       }
     }
@@ -228,8 +231,14 @@
   let chartInstance = null;
   let currentSpan = 'month';
 
-  const getDayData = () => JSON.parse(localStorage.getItem(STORAGE_KEY_DAYS) || '{}');
-  const getAnnualData = () => JSON.parse(localStorage.getItem(STORAGE_KEY_ANNUAL) || '[]');
+  const getDayData = () => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY_DAYS) || '{}'); }
+    catch(e) { return {}; }
+  };
+  const getAnnualData = () => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY_ANNUAL) || '[]'); }
+    catch(e) { return []; }
+  };
   const saveDayData = (data) => localStorage.setItem(STORAGE_KEY_DAYS, JSON.stringify(data));
   const saveAnnualData = (data) => localStorage.setItem(STORAGE_KEY_ANNUAL, JSON.stringify(data));
 
@@ -237,6 +246,8 @@
   function renderCalendar() {
     const calendarEl = document.getElementById('calendar');
     const monthDisplay = document.getElementById('month-display');
+    if (!calendarEl || !monthDisplay) return;
+
     calendarEl.innerHTML = '';
 
     const year = currentDate.getFullYear();
@@ -285,13 +296,11 @@
       const dateNum = document.createElement('div');
       dateNum.className = 'date-num';
       
-      let dateNumClass = '';
       if (dayOfWeek === 0 || holidayName) {
-        dateNumClass = 'sun-holiday';
+        dateNum.classList.add('sun-holiday');
       } else if (dayOfWeek === 6) {
-        dateNumClass = 'sat';
+        dateNum.classList.add('sat');
       }
-      if (dateNumClass) dateNum.classList.add(dateNumClass);
 
       dateNum.innerHTML = `<span>${date}</span>` + (holidayName ? `<span class="holiday-name">${holidayName}</span>` : '');
       cell.appendChild(dateNum);
@@ -305,7 +314,7 @@
       });
 
       // 2. 通常予定
-      if (dayData[fullDateKey]?.event) {
+      if (dayData[fullDateKey] && dayData[fullDateKey].event) {
         const badge = document.createElement('div');
         badge.className = 'event-badge regular-badge';
         badge.textContent = dayData[fullDateKey].event;
@@ -313,7 +322,7 @@
       }
 
       // 3. 体重・体脂肪
-      if (dayData[fullDateKey]?.weight || dayData[fullDateKey]?.fat) {
+      if (dayData[fullDateKey] && (dayData[fullDateKey].weight || dayData[fullDateKey].fat)) {
         const healthBadge = document.createElement('div');
         healthBadge.className = 'health-badge';
         const w = dayData[fullDateKey].weight ? `${dayData[fullDateKey].weight}kg` : '';
@@ -323,7 +332,7 @@
       }
 
       // 4. 日記
-      if (dayData[fullDateKey]?.diary) {
+      if (dayData[fullDateKey] && dayData[fullDateKey].diary) {
         const diaryIndicator = document.createElement('div');
         diaryIndicator.className = 'diary-indicator';
         diaryIndicator.textContent = '📖 日記あり';
@@ -442,7 +451,10 @@
     const dayData = getDayData();
     let keys = Object.keys(dayData).sort();
 
-    if (keys.length === 0) return;
+    if (keys.length === 0) {
+      if (chartInstance) chartInstance.destroy();
+      return;
+    }
 
     // スパンフィルタリング
     const now = new Date();
@@ -499,20 +511,4 @@
             type: 'linear',
             display: true,
             position: 'left',
-            title: { display: true, text: '体重 (kg)' }
-          },
-          y1: {
-            type: 'linear',
-            display: true,
-            position: 'right',
-            grid: { drawOnChartArea: false },
-            title: { display: true, text: '体脂肪率 (%)' }
-          }
-        }
-      }
-    });
-  }
-
-  // 前月・次月切り替え
-  document.getElementById('prev-month').addEventListener('click', () => {
-    cur
+           
