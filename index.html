@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>日記カレンダー</title>
+  <title>日記＆ヘルスケア カレンダー</title>
+  <!-- Chart.js 読み込み -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --primary-color: #4a90e2;
@@ -11,52 +13,68 @@
       --card-bg: #ffffff;
       --text-color: #333333;
       --border-color: #e0e0e0;
-      --annual-color: #e74c3c;
+      --annual-color: #d32f2f;
+      --saturday-color: #1976d2;
+      --sunday-holiday-color: #d32f2f;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); padding: 20px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); padding: 15px; }
     
     .container { max-width: 900px; margin: 0 auto; }
     
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--card-bg); padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    header h1 { font-size: 1.5rem; }
-    header button { padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer; }
-
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 15px; background: var(--card-bg); padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    header h1 { font-size: 1.3rem; }
+    .header-btns { display: flex; gap: 8px; }
+    .btn { padding: 8px 12px; background: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
     .nav-btn { background: #eee; color: #333; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 1rem; }
 
     /* カレンダーグリッド */
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; background: var(--card-bg); padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    .day-header { text-align: center; font-weight: bold; padding: 10px 0; color: #666; }
-    
-    .day-cell { min-height: 100px; background: #fff; border: 1px solid var(--border-color); border-radius: 5px; padding: 5px; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; }
+    .day-header { text-align: center; font-weight: bold; padding: 8px 0; color: #666; font-size: 0.9rem; }
+    .day-header.sat { color: var(--saturday-color); }
+    .day-header.sun { color: var(--sunday-holiday-color); }
+
+    .day-cell { min-height: 105px; background: #fff; border: 1px solid var(--border-color); border-radius: 5px; padding: 4px; cursor: pointer; transition: background 0.2s; display: flex; flex-direction: column; }
     .day-cell:hover { background: #f0f7ff; }
-    .day-cell .date-num { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; }
     
-    /* 予定・日記バッジ */
-    .event-badge { font-size: 0.75rem; padding: 2px 4px; border-radius: 3px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .date-num { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .date-num.sat { color: var(--saturday-color); }
+    .date-num.sun-holiday { color: var(--sunday-holiday-color); }
+    .holiday-name { font-size: 0.65rem; font-weight: normal; margin-left: 2px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+
+    /* バッジ */
+    .event-badge { font-size: 0.72rem; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .annual-badge { background-color: #ffebee; color: var(--annual-color); border: 1px solid #ffcdd2; font-weight: bold; }
     .regular-badge { background-color: #e3f2fd; color: #1976d2; }
-    .diary-indicator { font-size: 0.7rem; color: #2e7d32; background: #e8f5e9; padding: 2px 4px; border-radius: 3px; margin-top: auto; }
+    .health-badge { font-size: 0.68rem; color: #e65100; background: #fff3e0; padding: 1px 3px; border-radius: 3px; margin-top: auto; }
+    .diary-indicator { font-size: 0.68rem; color: #2e7d32; background: #e8f5e9; padding: 1px 3px; border-radius: 3px; margin-top: 2px; }
 
     /* モーダル */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
     .modal.active { display: flex; }
-    .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
-    .modal-content h2 { margin-bottom: 15px; font-size: 1.2rem; }
+    .modal-content { background: white; padding: 20px; border-radius: 10px; width: 92%; max-width: 550px; max-height: 90vh; overflow-y: auto; }
+    .modal-content h2 { margin-bottom: 12px; font-size: 1.1rem; }
     
-    form { display: flex; flex-direction: column; gap: 12px; }
-    label { font-size: 0.85rem; font-weight: bold; color: #555; }
-    input[type="text"], input[type="date"], textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
-    textarea { height: 100px; resize: vertical; }
+    form { display: flex; flex-direction: column; gap: 10px; }
+    .form-row { display: flex; gap: 10px; }
+    .form-group { flex: 1; }
+    label { font-size: 0.8rem; font-weight: bold; color: #555; display: block; margin-bottom: 3px; }
+    input[type="text"], input[type="number"], textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+    textarea { height: 80px; resize: vertical; }
     
-    .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; }
+    .modal-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
     .btn-save { background: var(--primary-color); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
     .btn-cancel { background: #ccc; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 
+    /* 恒例行事・グラフ関連 */
     .annual-list { margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px; }
-    .annual-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee; }
-    .btn-delete { background: #ff5252; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 0.8rem; }
+    .annual-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+    .btn-delete { background: #ff5252; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; }
+
+    .span-selector { display: flex; gap: 5px; margin-bottom: 15px; }
+    .span-btn { flex: 1; padding: 6px; border: 1px solid var(--primary-color); background: white; color: var(--primary-color); border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+    .span-btn.active { background: var(--primary-color); color: white; }
   </style>
 </head>
 <body>
@@ -65,17 +83,20 @@
   <header>
     <div>
       <button class="nav-btn" id="prev-month">&lt;</button>
-      <span id="month-display" style="font-size: 1.2rem; font-weight: bold; margin: 0 10px;"></span>
+      <span id="month-display" style="font-size: 1.1rem; font-weight: bold; margin: 0 8px;"></span>
       <button class="nav-btn" id="next-month">&gt;</button>
     </div>
-    <h1>日記カレンダー</h1>
-    <button id="open-annual-modal">毎年恒例の設定</button>
+    <h1>日記＆ヘルスケア</h1>
+    <div class="header-btns">
+      <button class="btn" id="open-graph-modal" style="background:#2e7d32;">📊 グラフ</button>
+      <button class="btn" id="open-annual-modal">★ 恒例設定</button>
+    </div>
   </header>
 
   <div class="calendar-grid" id="calendar"></div>
 </div>
 
-<!-- 日付詳細・日記編集モーダル -->
+<!-- 日付詳細モーダル -->
 <div class="modal" id="day-modal">
   <div class="modal-content">
     <h2 id="modal-date-title"></h2>
@@ -83,6 +104,16 @@
       <div>
         <label>本日の予定</label>
         <input type="text" id="event-input" placeholder="例: 買い物、会議">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>体重 (kg)</label>
+          <input type="number" step="0.1" id="weight-input" placeholder="60.5">
+        </div>
+        <div class="form-group">
+          <label>体脂肪率 (%)</label>
+          <input type="number" step="0.1" id="fat-input" placeholder="18.5">
+        </div>
       </div>
       <div>
         <label>日記</label>
@@ -99,15 +130,17 @@
 <!-- 恒例行事設定モーダル -->
 <div class="modal" id="annual-modal">
   <div class="modal-content">
-    <h2>毎年恒例の設定（誕生日・記念日・命日など）</h2>
+    <h2>毎年恒例の設定（誕生日・命日等）</h2>
     <form id="annual-form">
-      <div>
-        <label>月日 (MM-DD)</label>
-        <input type="text" id="annual-date" placeholder="04-15 (例: 4月15日)" pattern="\d{2}-\d{2}" required>
-      </div>
-      <div>
-        <label>予定名</label>
-        <input type="text" id="annual-title" placeholder="例: ○○の誕生日" required>
+      <div class="form-row">
+        <div class="form-group" style="flex: 0.4;">
+          <label>月日 (MM-DD)</label>
+          <input type="text" id="annual-date" placeholder="04-15" pattern="\d{2}-\d{2}" required>
+        </div>
+        <div class="form-group">
+          <label>予定名</label>
+          <input type="text" id="annual-title" placeholder="例: ○○の誕生日" required>
+        </div>
       </div>
       <button type="submit" class="btn-save" style="margin-top: 5px;">追加</button>
     </form>
@@ -123,23 +156,84 @@
   </div>
 </div>
 
+<!-- グラフモーダル -->
+<div class="modal" id="graph-modal">
+  <div class="modal-content" style="max-width: 700px;">
+    <h2>体重・体脂肪率の推移</h2>
+    <div class="span-selector">
+      <button class="span-btn" data-span="week">1週間</button>
+      <button class="span-btn active" data-span="month">1ヶ月</button>
+      <button class="span-btn" data-span="year">1年</button>
+      <button class="span-btn" data-span="all">全期間</button>
+    </div>
+    <div style="position: relative; height:300px; width:100%">
+      <canvas id="healthChart"></canvas>
+    </div>
+    <div class="modal-buttons">
+      <button type="button" class="btn-cancel" id="close-graph-modal">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  // ローカルストレージキー
+  // --- 日本の祝日判定ロジック (簡易・広範対応) ---
+  function getJapaneseHoliday(year, month, day) {
+    const mmdd = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const date = new Date(year, month - 1, day);
+    const dayOfWeek = date.getDay();
+
+    // 固定祝日
+    const fixedHolidays = {
+      '01-01': '元日', '02-11': '建国記念の日', '02-23': '天皇誕生日',
+      '04-29': '昭和の日', '05-03': '憲法記念日', '05-04': 'みどりの日',
+      '05-05': 'こどもの日', '08-11': '山の日', '11-03': '文化の日', '11-23': '勤労感謝の日'
+    };
+    if (fixedHolidays[mmdd]) return fixedHolidays[mmdd];
+
+    // ハッピーマンデー (第2月曜: 成人の日(1月), 体育の日/スポーツの日(10月) / 第3月曜: 海の日(7月), 敬老の日(9月))
+    const nthMonday = Math.floor((day - 1) / 7) + 1;
+    if (dayOfWeek === 1) {
+      if (month === 1 && nthMonday === 2) return '成人の日';
+      if (month === 7 && nthMonday === 3) return '海の日';
+      if (month === 9 && nthMonday === 3) return '敬老の日';
+      if (month === 10 && nthMonday === 2) return 'スポーツの日';
+    }
+
+    // 春分・秋分 (概算簡易計算)
+    if (month === 3) {
+      const vernal = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+      if (day === vernal) return '春分の日';
+    }
+    if (month === 9) {
+      const autumnal = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+      if (day === autumnal) return '秋分の日';
+    }
+
+    // 振替休日判定 (前日が日曜かつ祝日の場合)
+    if (dayOfWeek === 1) {
+      const prev = new Date(year, month - 1, day - 1);
+      if (getJapaneseHoliday(prev.getFullYear(), prev.getMonth() + 1, prev.getDate())) {
+        return '振替休日';
+      }
+    }
+    return null;
+  }
+
+  // --- ストレージ処理 ---
   const STORAGE_KEY_DAYS = 'calendar_diary_days';
   const STORAGE_KEY_ANNUAL = 'calendar_diary_annual';
 
   let currentDate = new Date();
   let selectedDateStr = '';
+  let chartInstance = null;
+  let currentSpan = 'month';
 
-  // データ取得
   const getDayData = () => JSON.parse(localStorage.getItem(STORAGE_KEY_DAYS) || '{}');
   const getAnnualData = () => JSON.parse(localStorage.getItem(STORAGE_KEY_ANNUAL) || '[]');
-
-  // データ保存
   const saveDayData = (data) => localStorage.setItem(STORAGE_KEY_DAYS, JSON.stringify(data));
   const saveAnnualData = (data) => localStorage.setItem(STORAGE_KEY_ANNUAL, JSON.stringify(data));
 
-  // カレンダー描画
+  // --- カレンダー描画 ---
   function renderCalendar() {
     const calendarEl = document.getElementById('calendar');
     const monthDisplay = document.getElementById('month-display');
@@ -151,11 +245,14 @@
     monthDisplay.textContent = `${year}年 ${month + 1}月`;
 
     // 曜日ヘッダー
-    const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
+    const daysOfWeek = [
+      { name: '日', class: 'sun' }, { name: '月', class: '' }, { name: '火', class: '' },
+      { name: '水', class: '' }, { name: '木', class: '' }, { name: '金', class: '' }, { name: '土', class: 'sat' }
+    ];
     daysOfWeek.forEach(d => {
       const header = document.createElement('div');
-      header.className = 'day-header';
-      header.textContent = d;
+      header.className = `day-header ${d.class}`;
+      header.textContent = d.name;
       calendarEl.appendChild(header);
     });
 
@@ -164,8 +261,7 @@
 
     // 空白セル
     for (let i = 0; i < firstDay; i++) {
-      const empty = document.createElement('div');
-      calendarEl.appendChild(empty);
+      calendarEl.appendChild(document.createElement('div'));
     }
 
     const dayData = getDayData();
@@ -181,52 +277,76 @@
       const fullDateKey = `${year}-${monthStr}-${dateStr}`;
       const mmddKey = `${monthStr}-${dateStr}`;
 
+      const cellDate = new Date(year, month, date);
+      const dayOfWeek = cellDate.getDay();
+      const holidayName = getJapaneseHoliday(year, month + 1, date);
+
+      // 日付テキストと土日祝の判定
       const dateNum = document.createElement('div');
       dateNum.className = 'date-num';
-      dateNum.textContent = date;
+      
+      let dateNumClass = '';
+      if (dayOfWeek === 0 || holidayName) {
+        dateNumClass = 'sun-holiday';
+      } else if (dayOfWeek === 6) {
+        dateNumClass = 'sat';
+      }
+      if (dateNumClass) dateNum.classList.add(dateNumClass);
+
+      dateNum.innerHTML = `<span>${date}</span>` + (holidayName ? `<span class="holiday-name">${holidayName}</span>` : '');
       cell.appendChild(dateNum);
 
-      // 1. 毎年変わらない予定（恒例行事）の描画
-      const annuals = annualData.filter(a => a.mmdd === mmddKey);
-      annuals.forEach(a => {
+      // 1. 毎年恒例行事
+      annualData.filter(a => a.mmdd === mmddKey).forEach(a => {
         const badge = document.createElement('div');
         badge.className = 'event-badge annual-badge';
         badge.textContent = `★ ${a.title}`;
         cell.appendChild(badge);
       });
 
-      // 2. 通常の予定の描画
-      if (dayData[fullDateKey] && dayData[fullDateKey].event) {
+      // 2. 通常予定
+      if (dayData[fullDateKey]?.event) {
         const badge = document.createElement('div');
         badge.className = 'event-badge regular-badge';
         badge.textContent = dayData[fullDateKey].event;
         cell.appendChild(badge);
       }
 
-      // 3. 日記が存在するか描画
-      if (dayData[fullDateKey] && dayData[fullDateKey].diary) {
+      // 3. 体重・体脂肪
+      if (dayData[fullDateKey]?.weight || dayData[fullDateKey]?.fat) {
+        const healthBadge = document.createElement('div');
+        healthBadge.className = 'health-badge';
+        const w = dayData[fullDateKey].weight ? `${dayData[fullDateKey].weight}kg` : '';
+        const f = dayData[fullDateKey].fat ? `${dayData[fullDateKey].fat}%` : '';
+        healthBadge.textContent = `⚖️ ${w} ${f}`.trim();
+        cell.appendChild(healthBadge);
+      }
+
+      // 4. 日記
+      if (dayData[fullDateKey]?.diary) {
         const diaryIndicator = document.createElement('div');
         diaryIndicator.className = 'diary-indicator';
         diaryIndicator.textContent = '📖 日記あり';
         cell.appendChild(diaryIndicator);
       }
 
-      // タップでモーダルオープン
       cell.addEventListener('click', () => openDayModal(fullDateKey));
       calendarEl.appendChild(cell);
     }
   }
 
-  // モーダル操作: 日付（日記・予定）
+  // --- 日付モーダル ---
   function openDayModal(dateStr) {
     selectedDateStr = dateStr;
     document.getElementById('modal-date-title').textContent = `${dateStr} の記録`;
     
     const dayData = getDayData();
-    const currentInfo = dayData[dateStr] || { event: '', diary: '' };
+    const info = dayData[dateStr] || {};
 
-    document.getElementById('event-input').value = currentInfo.event || '';
-    document.getElementById('diary-input').value = currentInfo.diary || '';
+    document.getElementById('event-input').value = info.event || '';
+    document.getElementById('weight-input').value = info.weight || '';
+    document.getElementById('fat-input').value = info.fat || '';
+    document.getElementById('diary-input').value = info.diary || '';
 
     document.getElementById('day-modal').classList.add('active');
   }
@@ -239,10 +359,12 @@
     e.preventDefault();
     const dayData = getDayData();
     const event = document.getElementById('event-input').value.trim();
+    const weight = document.getElementById('weight-input').value;
+    const fat = document.getElementById('fat-input').value;
     const diary = document.getElementById('diary-input').value.trim();
 
-    if (event || diary) {
-      dayData[selectedDateStr] = { event, diary };
+    if (event || weight || fat || diary) {
+      dayData[selectedDateStr] = { event, weight, fat, diary };
     } else {
       delete dayData[selectedDateStr];
     }
@@ -252,12 +374,11 @@
     renderCalendar();
   });
 
-  // モーダル操作: 毎年恒例行事
+  // --- 恒例行事モーダル ---
   document.getElementById('open-annual-modal').addEventListener('click', () => {
     renderAnnualList();
     document.getElementById('annual-modal').classList.add('active');
   });
-
   document.getElementById('close-annual-modal').addEventListener('click', () => {
     document.getElementById('annual-modal').classList.remove('active');
   });
@@ -282,9 +403,7 @@
   function renderAnnualList() {
     const container = document.getElementById('annual-items-container');
     container.innerHTML = '';
-    const annualData = getAnnualData();
-
-    annualData.forEach(item => {
+    getAnnualData().forEach(item => {
       const div = document.createElement('div');
       div.className = 'annual-item';
       div.innerHTML = `
@@ -296,27 +415,104 @@
   }
 
   window.deleteAnnual = function(id) {
-    let annualData = getAnnualData();
-    annualData = annualData.filter(item => item.id !== id);
-    saveAnnualData(annualData);
+    saveAnnualData(getAnnualData().filter(item => item.id !== id));
     renderAnnualList();
     renderCalendar();
   };
 
-  // 月切り替え
+  // --- グラフ機能 ---
+  document.getElementById('open-graph-modal').addEventListener('click', () => {
+    document.getElementById('graph-modal').classList.add('active');
+    renderChart();
+  });
+  document.getElementById('close-graph-modal').addEventListener('click', () => {
+    document.getElementById('graph-modal').classList.remove('active');
+  });
+
+  document.querySelectorAll('.span-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.span-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      currentSpan = e.target.getAttribute('data-span');
+      renderChart();
+    });
+  });
+
+  function renderChart() {
+    const dayData = getDayData();
+    let keys = Object.keys(dayData).sort();
+
+    if (keys.length === 0) return;
+
+    // スパンフィルタリング
+    const now = new Date();
+    if (currentSpan === 'week') {
+      const target = new Date();
+      target.setDate(now.getDate() - 7);
+      keys = keys.filter(k => new Date(k) >= target);
+    } else if (currentSpan === 'month') {
+      const target = new Date();
+      target.setMonth(now.getMonth() - 1);
+      keys = keys.filter(k => new Date(k) >= target);
+    } else if (currentSpan === 'year') {
+      const target = new Date();
+      target.setFullYear(now.getFullYear() - 1);
+      keys = keys.filter(k => new Date(k) >= target);
+    }
+
+    const labels = keys;
+    const weightData = keys.map(k => dayData[k].weight || null);
+    const fatData = keys.map(k => dayData[k].fat || null);
+
+    const ctx = document.getElementById('healthChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: '体重 (kg)',
+            data: weightData,
+            borderColor: '#1976d2',
+            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+            spanGaps: true,
+            yAxisID: 'y'
+          },
+          {
+            label: '体脂肪率 (%)',
+            data: fatData,
+            borderColor: '#f57c00',
+            backgroundColor: 'rgba(245, 124, 0, 0.1)',
+            spanGaps: true,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { display: true },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: { display: true, text: '体重 (kg)' }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: '体脂肪率 (%)' }
+          }
+        }
+      }
+    });
+  }
+
+  // 前月・次月切り替え
   document.getElementById('prev-month').addEventListener('click', () => {
-    currentDate.setMonth(currentDate.getMonth() - 1);
-    renderCalendar();
-  });
-
-  document.getElementById('next-month').addEventListener('click', () => {
-    currentDate.setMonth(currentDate.getMonth() + 1);
-    renderCalendar();
-  });
-
-  // 初期化
-  renderCalendar();
-</script>
-
-</body>
-</html>
+    cur
