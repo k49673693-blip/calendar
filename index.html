@@ -43,74 +43,78 @@
     #error-bar { display: none; background: #ffebee; border: 1px solid #f44336; color: #c62828; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.85rem; line-height: 1.4; }
     #error-bar button { margin-top: 6px; background: #d32f2f; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
 
-    /* 枠を最小限にし、間隔を狭く調整 */
+    /* カレンダーグリッド設定 */
     .calendar-grid { 
       display: grid; 
       grid-template-columns: repeat(7, 1fr); 
-      gap: 2px; 
+      gap: 3px; 
       background: var(--card-bg); 
       padding: 4px; 
       border-radius: 8px; 
       box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-      touch-action: pan-y; /* 横スワイプイベントを優先 */
+      touch-action: pan-y;
     }
-    .day-header { text-align: center; font-weight: bold; padding: 4px 0; color: #666; font-size: 0.8rem; }
+    .day-header { text-align: center; font-weight: bold; padding: 6px 0; color: #666; font-size: 0.85rem; }
     .day-header.sat { color: var(--saturday-color); }
     .day-header.sun { color: var(--sunday-holiday-color); }
 
-    /* 枠線をなくし、背景色で枠を表現 */
+    /* 全ての月で大きさを統一するため、固定最小高さを拡大設定 */
     .day-cell { 
-      min-height: 90px; 
+      min-height: 105px; 
       background: #fafafa; 
       border: none; 
-      border-radius: 3px; 
-      padding: 2px; 
+      border-radius: 4px; 
+      padding: 3px; 
       cursor: pointer; 
       display: flex; 
       flex-direction: column; 
       overflow: hidden; 
     }
+    .day-cell.empty {
+      background: transparent;
+      cursor: default;
+    }
     .day-cell.sat-bg { background-color: var(--sat-bg-color); }
     .day-cell.sun-holiday-bg { background-color: var(--sun-holiday-bg-color); }
     .day-cell.is-today { background-color: var(--today-bg) !important; outline: 2px solid var(--today-border); outline-offset: -2px; }
-    .is-today .date-num span:first-child { background: var(--today-border); color: #000; padding: 1px 4px; border-radius: 8px; }
+    .is-today .date-num span:first-child { background: var(--today-border); color: #000; padding: 1px 5px; border-radius: 8px; }
 
-    .date-num { font-weight: bold; font-size: 0.85rem; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .date-num { font-weight: bold; font-size: 0.9rem; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: flex-start; }
     .date-num.sat { color: var(--saturday-color); }
     .date-num.sun-holiday { color: var(--sunday-holiday-color); }
-    .holiday-name { font-size: 0.6rem; font-weight: normal; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+    .holiday-name { font-size: 0.65rem; font-weight: normal; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 
-    /* 長い予定を折返して最大2行表示に変更 */
+    /* 長い予定は折返して2行表示 */
     .event-badge { 
-      font-size: 0.68rem; 
-      padding: 1px 3px; 
-      border-radius: 2px; 
+      font-size: 0.72rem; 
+      padding: 2px 4px; 
+      border-radius: 3px; 
       margin-bottom: 2px; 
-      line-height: 1.15;
+      line-height: 1.2;
       word-break: break-all;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-    .annual-badge { background-color: #ffebee; color: var(--annual-color); border-left: 2px solid var(--annual-color); font-weight: bold; }
-    .regular-badge { background-color: #e3f2fd; color: #1976d2; border-left: 2px solid #1976d2; }
-    .health-badge { font-size: 0.65rem; color: #e65100; background: #fff3e0; padding: 1px 2px; border-radius: 2px; margin-top: auto; }
-    .diary-indicator { font-size: 0.65rem; color: #2e7d32; background: #e8f5e9; padding: 1px 2px; border-radius: 2px; margin-top: 1px; }
+    .annual-badge { background-color: #ffebee; color: var(--annual-color); border-left: 3px solid var(--annual-color); font-weight: bold; }
+    .regular-badge { background-color: #e3f2fd; color: #1976d2; border-left: 3px solid #1976d2; }
+    .health-badge { font-size: 0.68rem; color: #e65100; background: #fff3e0; padding: 1px 3px; border-radius: 2px; margin-top: auto; }
+    .diary-indicator { font-size: 0.68rem; color: #2e7d32; background: #e8f5e9; padding: 1px 3px; border-radius: 2px; margin-top: 1px; }
 
-    /* スマホ・縦画面用の微調整 */
+    /* スマホ・縦画面用のサイズ統一設定 */
     @media (max-width: 600px) {
       body { padding: 2px; }
-      .calendar-grid { gap: 1px; padding: 2px; }
-      .day-cell { min-height: 80px; padding: 1px; }
+      .calendar-grid { gap: 2px; padding: 2px; }
+      .day-cell { min-height: 98px; padding: 2px; }
       .date-num {
         flex-direction: column;
         align-items: flex-start;
         gap: 0px;
-        font-size: 0.8rem;
+        font-size: 0.85rem;
       }
       .holiday-name {
-        font-size: 0.58rem;
+        font-size: 0.62rem;
         line-height: 1.0;
         display: block;
         width: 100%;
@@ -370,8 +374,11 @@ function resetDataAndReload() {
 
       var firstDay = new Date(year, month, 1).getDay();
       var lastDate = new Date(year, month + 1, 0).getDate();
+      
       for (var i = 0; i < firstDay; i++) {
-        calendarEl.appendChild(document.createElement('div'));
+        var emptyCell = document.createElement('div');
+        emptyCell.className = 'day-cell empty';
+        calendarEl.appendChild(emptyCell);
       }
 
       var dayData = getDayData();
@@ -425,12 +432,22 @@ function resetDataAndReload() {
         (function(k){ cell.onclick = function(){ openDayModal(k); }; })(fKey);
         calendarEl.appendChild(cell);
       }
+
+      // 常に全カレンダーを「6行（42マス）」に揃えて月の高さを一定にする補正
+      var totalCells = firstDay + lastDate;
+      var remainingCells = 42 - totalCells;
+      for (var i = 0; i < remainingCells; i++) {
+        var emptyCell = document.createElement('div');
+        emptyCell.className = 'day-cell empty';
+        calendarEl.appendChild(emptyCell);
+      }
+
     } catch(err) {
       showError('カレンダー描画中にエラーが発生しました: ' + err.message);
     }
   }
 
-  function openDayModal(dStr) {
+    function openDayModal(dStr) {
     selectedDateStr = dStr;
     var dt = document.getElementById('modal-date-title');
     if(dt) dt.textContent = dStr;
@@ -571,7 +588,6 @@ function resetDataAndReload() {
     container.innerHTML = svgHtml;
   }
 
-  // スワイプによる月移動イベント設定
   function setupSwipeEvents() {
     var calendarEl = document.getElementById('calendar');
     if (!calendarEl) return;
@@ -590,13 +606,10 @@ function resetDataAndReload() {
       var diffX = endX - startX;
       var diffY = endY - startY;
 
-      // 縦スクロールと誤作動しないよう横移動が一定以上かつ縦より大きい場合のみ検知
       if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY)) {
         if (diffX < 0) {
-          // 左スワイプ -> 翌月
           currentDate.setMonth(currentDate.getMonth() + 1);
         } else {
-          // 右スワイプ -> 前月
           currentDate.setMonth(currentDate.getMonth() - 1);
         }
         renderCalendar();
