@@ -45,7 +45,6 @@
     .day-cell.sat-bg { background-color: var(--sat-bg-color); }
     .day-cell.sun-holiday-bg { background-color: var(--sun-holiday-bg-color); }
 
-    /* 今日ハイライト */
     .day-cell.is-today { background-color: var(--today-bg) !important; border: 2px solid var(--today-border) !important; }
     .is-today .date-num span:first-child { background: var(--today-border); color: #000; padding: 2px 6px; border-radius: 10px; }
 
@@ -54,14 +53,12 @@
     .date-num.sun-holiday { color: var(--sunday-holiday-color); }
     .holiday-name { font-size: 0.65rem; font-weight: normal; margin-left: 2px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 
-    /* バッジ */
     .event-badge { font-size: 0.72rem; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .annual-badge { background-color: #ffebee; color: var(--annual-color); border: 1px solid #ffcdd2; font-weight: bold; }
     .regular-badge { background-color: #e3f2fd; color: #1976d2; }
     .health-badge { font-size: 0.68rem; color: #e65100; background: #fff3e0; padding: 1px 3px; border-radius: 3px; margin-top: auto; }
     .diary-indicator { font-size: 0.68rem; color: #2e7d32; background: #e8f5e9; padding: 1px 3px; border-radius: 3px; margin-top: 2px; }
 
-    /* モーダル */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
     .modal.active { display: flex; }
     .modal-content { background: white; padding: 20px; border-radius: 10px; width: 92%; max-width: 550px; max-height: 90vh; overflow-y: auto; }
@@ -111,7 +108,6 @@
   <div class="calendar-grid" id="calendar"></div>
 </div>
 
-<!-- 日記・予定入力モーダル -->
 <div class="modal" id="day-modal">
   <div class="modal-content">
     <h2 id="modal-date-title"></h2>
@@ -130,7 +126,6 @@
   </div>
 </div>
 
-<!-- 恒例行事モーダル -->
 <div class="modal" id="annual-modal">
   <div class="modal-content">
     <h2>毎年恒例の設定</h2>
@@ -148,7 +143,6 @@
   </div>
 </div>
 
-<!-- グラフモーダル -->
 <div class="modal" id="graph-modal">
   <div class="modal-content" style="max-width: 700px;">
     <h2>推移グラフ</h2>
@@ -163,7 +157,6 @@
 </div>
 
 <script>
-// グローバルエラー検知
 window.onerror = function(msg, url, line) {
   showError('エラー検知: ' + msg + ' (' + line + '行目)');
   return false;
@@ -195,23 +188,20 @@ function resetDataAndReload() {
   var currentSpan = 'month';
   var STORAGE_KEY_DAYS = 'calendar_diary_days';
   var STORAGE_KEY_ANNUAL = 'calendar_diary_annual';
+  var isInitialized = false; // 二重起動防止用フラグ
 
   function safeAddEvent(id, eventType, callback) {
     var el = document.getElementById(id);
     if (el) { el.addEventListener(eventType, callback); }
   }
 
-  // ストレージから安全にデータを取り出す (二重型ガード)
   function safeGetStorage(key, isArray) {
     try {
       var item = localStorage.getItem(key);
       if (!item) return isArray ? [] : {};
       var parsed = JSON.parse(item);
-      if (isArray) {
-        return Array.isArray(parsed) ? parsed : [];
-      } else {
-        return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
-      }
+      if (isArray) return Array.isArray(parsed) ? parsed : [];
+      return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
     } catch(e) {
       return isArray ? [] : {};
     }
@@ -224,13 +214,11 @@ function resetDataAndReload() {
   function getDayData() { return safeGetStorage(STORAGE_KEY_DAYS, false); }
   function getAnnualData() { return safeGetStorage(STORAGE_KEY_ANNUAL, true); }
 
-  // 祝日計算
   function getJapaneseHoliday(year, month, day) {
     try {
       var mm = (month < 10 ? '0' : '') + month;
       var dd = (day < 10 ? '0' : '') + day;
       var mmdd = mm + '-' + dd;
-
       var fixedHolidays = {
         '01-01': '元日', '02-11': '建国記念の日', '02-23': '天皇誕生日',
         '04-29': '昭和の日', '05-03': '憲法記念日', '05-04': 'みどりの日',
@@ -274,12 +262,13 @@ function resetDataAndReload() {
       }
 
       var daysOfWeek = [{n:'日',c:'sun'}, {n:'月',c:''}, {n:'火',c:''}, {n:'水',c:''}, {n:'木',c:''}, {n:'金',c:''}, {n:'土',c:'sat'}];
-      daysOfWeek.forEach(function(d) {
+      for (var i = 0; i < daysOfWeek.length; i++) {
+        var d = daysOfWeek[i];
         var h = document.createElement('div');
         h.className = 'day-header ' + d.c;
         h.textContent = d.n;
         calendarEl.appendChild(h);
-      });
+      }
 
       var firstDay = new Date(year, month, 1).getDay();
       var lastDate = new Date(year, month + 1, 0).getDate();
@@ -313,12 +302,13 @@ function resetDataAndReload() {
         dNum.innerHTML = '<span>' + date + '</span>' + (hol ? '<span class="holiday-name">' + hol + '</span>' : '');
         cell.appendChild(dNum);
 
-        // 恒例行事
-        annualData.filter(function(a){ return a && a.mmdd === mmdd; }).forEach(function(a){
-          var b = document.createElement('div'); b.className = 'event-badge annual-badge'; b.textContent = '★ ' + (a.title || ''); cell.appendChild(b);
-        });
+        for (var j = 0; j < annualData.length; j++) {
+          var a = annualData[j];
+          if (a && a.mmdd === mmdd) {
+            var b = document.createElement('div'); b.className = 'event-badge annual-badge'; b.textContent = '★ ' + (a.title || ''); cell.appendChild(b);
+          }
+        }
 
-        // 日常データ
         if (dayData[fKey]) {
           var item = dayData[fKey];
           if (item.event) {
@@ -336,7 +326,7 @@ function resetDataAndReload() {
         calendarEl.appendChild(cell);
       }
     } catch(err) {
-      showError('カレンダー描画エラー: ' + err.message);
+      showError('カレンダー描画中にエラーが発生しました: ' + err.message);
     }
   }
 
@@ -345,14 +335,10 @@ function resetDataAndReload() {
     var dt = document.getElementById('modal-date-title');
     if(dt) dt.textContent = dStr;
     var info = getDayData()[dStr] || {};
-    var evIn = document.getElementById('event-input');
-    var wIn = document.getElementById('weight-input');
-    var fIn = document.getElementById('fat-input');
-    var dIn = document.getElementById('diary-input');
-    if(evIn) evIn.value = info.event || '';
-    if(wIn) wIn.value = info.weight || '';
-    if(fIn) fIn.value = info.fat || '';
-    if(dIn) dIn.value = info.diary || '';
+    if(document.getElementById('event-input')) document.getElementById('event-input').value = info.event || '';
+    if(document.getElementById('weight-input')) document.getElementById('weight-input').value = info.weight || '';
+    if(document.getElementById('fat-input')) document.getElementById('fat-input').value = info.fat || '';
+    if(document.getElementById('diary-input')) document.getElementById('diary-input').value = info.diary || '';
     var m = document.getElementById('day-modal'); if(m) m.classList.add('active');
   }
 
@@ -360,20 +346,26 @@ function resetDataAndReload() {
     var c = document.getElementById('annual-items-container');
     if(!c) return;
     c.innerHTML = '';
-    getAnnualData().forEach(function(i) {
-      if(!i) return;
+    var annualData = getAnnualData();
+    for (var i = 0; i < annualData.length; i++) {
+      var item = annualData[i];
+      if(!item) continue;
       var d = document.createElement('div'); d.className = 'annual-item';
-      d.innerHTML = '<span>[' + (i.mmdd||'') + '] ' + (i.title||'') + '</span><button class="btn-delete">削除</button>';
+      d.innerHTML = '<span>[' + (item.mmdd||'') + '] ' + (item.title||'') + '</span><button class="btn-delete">削除</button>';
       var btn = d.querySelector('.btn-delete');
       if (btn) {
-        btn.onclick = function() { window.deleteAnnual(i.id); };
+        (function(id) { btn.onclick = function() { window.deleteAnnual(id); }; })(item.id);
       }
       c.appendChild(d);
-    });
+    }
   }
 
   window.deleteAnnual = function(id) {
-    var updated = getAnnualData().filter(function(i){ return i && i.id !== id; });
+    var data = getAnnualData();
+    var updated = [];
+    for (var i = 0; i < data.length; i++) {
+      if (data[i] && data[i].id !== id) updated.push(data[i]);
+    }
     safeSetStorage(STORAGE_KEY_ANNUAL, updated);
     renderAnnualList();
     renderCalendar();
@@ -385,24 +377,38 @@ function resetDataAndReload() {
     container.innerHTML = '';
 
     var dayData = getDayData();
-    var keys = Object.keys(dayData).sort();
+    var keys = [];
+    for (var key in dayData) { if (dayData.hasOwnProperty(key)) keys.push(key); }
+    keys.sort();
 
     var now = new Date();
-    if (currentSpan === 'week') {
-      var target = new Date(); target.setDate(now.getDate() - 7);
-      keys = keys.filter(function(k) { return new Date(k) >= target; });
-    } else if (currentSpan === 'month') {
-      var target = new Date(); target.setMonth(now.getMonth() - 1);
-      keys = keys.filter(function(k) { return new Date(k) >= target; });
-    } else if (currentSpan === 'year') {
-      var target = new Date(); target.setFullYear(now.getFullYear() - 1);
-      keys = keys.filter(function(k) { return new Date(k) >= target; });
-    }
+    var validData = [];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var itemDate = new Date(k);
+      var target = new Date();
+      var isValid = false;
+      
+      if (currentSpan === 'week') {
+        target.setDate(now.getDate() - 7);
+        if (itemDate >= target) isValid = true;
+      } else if (currentSpan === 'month') {
+        target.setMonth(now.getMonth() - 1);
+        if (itemDate >= target) isValid = true;
+      } else if (currentSpan === 'year') {
+        target.setFullYear(now.getFullYear() - 1);
+        if (itemDate >= target) isValid = true;
+      }
 
-    var validData = keys.map(function(k) {
-      var item = dayData[k] || {};
-      return { date: k, w: parseFloat(item.weight) || null, f: parseFloat(item.fat) || null };
-    }).filter(function(d) { return d.w !== null || d.f !== null; });
+      if (isValid) {
+        var item = dayData[k] || {};
+        var w = parseFloat(item.weight);
+        var f = parseFloat(item.fat);
+        if (!isNaN(w) || !isNaN(f)) {
+          validData.push({ date: k, w: isNaN(w) ? null : w, f: isNaN(f) ? null : f });
+        }
+      }
+    }
 
     if (validData.length === 0) {
       container.innerHTML = '<div style="text-align:center; padding-top:100px; color:#999;">データがありません</div>';
@@ -413,8 +419,11 @@ function resetDataAndReload() {
     var height = 260;
     var padding = 40;
 
-    var wValues = validData.map(function(d) { return d.w; }).filter(function(v) { return v !== null; });
-    var fValues = validData.map(function(d) { return d.f; }).filter(function(v) { return v !== null; });
+    var wValues = []; var fValues = [];
+    for (var i = 0; i < validData.length; i++) {
+      if (validData[i].w !== null) wValues.push(validData[i].w);
+      if (validData[i].f !== null) fValues.push(validData[i].f);
+    }
 
     var minW = wValues.length ? Math.min.apply(null, wValues) - 1 : 0;
     var maxW = wValues.length ? Math.max.apply(null, wValues) + 1 : 100;
@@ -430,7 +439,8 @@ function resetDataAndReload() {
     var pointsW = [];
     var pointsF = [];
 
-    validData.forEach(function(d, i) {
+    for (var i = 0; i < validData.length; i++) {
+      var d = validData[i];
       var x = validData.length === 1 ? width / 2 : padding + i * stepX;
       if (d.w !== null) {
         var yW = (height - padding) - ((d.w - minW) / (maxW - minW || 1)) * (height - padding * 2);
@@ -439,10 +449,4 @@ function resetDataAndReload() {
       }
       if (d.f !== null) {
         var yF = (height - padding) - ((d.f - minF) / (maxF - minF || 1)) * (height - padding * 2);
-        pointsF.push(x + ',' + yF);
-        svgHtml += '<circle cx="' + x + '" cy="' + yF + '" r="4" fill="#f57c00" />';
-      }
-    });
-
-    if (pointsW.length > 1) svgHtml += '<polyline points="' + pointsW.join(' ') + '" fill="none" stroke="#1976d2" stroke-width="2" />';
-    if (pointsF.length > 1) svgHtml += '<polyline points="' + pointsF.join(' ') + '" fill="none" stroke="#f57c00" stroke-w
+   
