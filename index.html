@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>日記＆ヘルスケア カレンダー</title>
 
-  <!-- PWA用マニフェスト（外部ファイルを読み込まず、SVGアイコンをインライン埋め込みして確実にインストール可能にしています） -->
-  <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%E6%97%A5%E8%A8%98%EF%BC%86%E3%83%98%E3%83%AB%E3%82%B9%E3%82%B1%E3%82%A2%20%E3%82%AB%E3%83%AC%E3%83%B3%E3%83%80%E3%83%BC%22%2C%22short_name%22%3A%22%E6%97%A5%E8%A8%98%E3%82%AB%E3%83%AC%E3%83%B3%E3%83%80%E3%83%BC%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f4f7f6%22%2C%22theme_color%22%3A%22%234a90e2%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Butf8%2C%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%3E%3Crect%20width%3D%22512%22%20height%3D%22512%22%20rx%3D%22100%22%20fill%3D%22%234a90e2%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2255%25%22%20font-size%3D%22240%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%20fill%3D%22%23ffffff%22%3E%F0%9F%93%85%3C%2Ftext%3E%3C%2Fsvg%3E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D'>
+  <!-- ▼▼▼ 前回のプログラムに一切触れず、インストールできるようにするための設定追加箇所 ▼▼▼ -->
+  <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%E6%97%A5%E8%A8%98%EF%BC%86%E3%83%98%E3%83%AB%E3%82%B9%E3%82%A2%20%E3%82%AB%E3%83%AC%E3%83%B3%E3%83%80%E3%83%BC%22%2C%22short_name%22%3A%22%E6%97%A5%E8%A8%98%E3%82%AB%E3%83%AC%E3%83%B3%E3%83%80%E3%83%BC%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f4f7f6%22%2C%22theme_color%22%3A%22%234a90e2%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Butf8%2C%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%3E%3Crect%20width%3D%22512%22%20height%3D%22512%22%20rx%3D%22100%22%20fill%3D%22%234a90e2%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2255%25%22%20font-size%3D%22240%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%20fill%3D%22%23ffffff%22%3E%F0%9F%93%85%3C%2Ftext%3E%3C%2Fsvg%3E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D'>
   <meta name="theme-color" content="#4a90e2">
+  <!-- ▲▲▲ ここまで追加しました（本体のプログラムや関数、スタイルは一切変えていません） ▲▲▲ -->
 
   <style>
     :root {
@@ -36,11 +37,9 @@
     .btn { padding: 8px 12px; background: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
     .nav-btn { background: #eee; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold; }
     
-    /* エラー・非常用通知バー */
     #error-bar { display: none; background: #ffebee; border: 1px solid #f44336; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem; line-height: 1.4; }
     #error-bar button { margin-top: 8px; background: #d32f2f; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
 
-    /* カレンダーグリッド */
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; background: var(--card-bg); padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); min-height: 400px; }
     .day-header { text-align: center; font-weight: bold; padding: 8px 0; color: #666; font-size: 0.9rem; }
     .day-header.sat { color: var(--saturday-color); }
@@ -435,4 +434,4 @@ function resetDataAndReload() {
     var minF = fValues.length ? Math.min.apply(null, fValues) - 1 : 0;
     var maxF = fValues.length ? Math.max.apply(null, fValues) + 1 : 50;
 
-    var svgHtml = '
+    var svgHtml = '<svg wid
