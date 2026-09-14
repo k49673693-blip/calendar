@@ -97,17 +97,16 @@
     }
     .annual-badge { background-color: #ffebee; color: var(--annual-color); border-left: 3px solid var(--annual-color); font-weight: bold; }
     .regular-badge { background-color: #e3f2fd; color: #1976d2; border-left: 3px solid #1976d2; }
-    .health-badge { font-size: 0.68rem; color: #e65100; background: #fff3e0; padding: 1px 3px; border-radius: 2px; margin-top: auto; }
-    .diary-indicator { font-size: 0.68rem; color: #2e7d32; background: #e8f5e9; padding: 1px 3px; border-radius: 2px; margin-top: 1px; }
+    .diary-indicator { font-size: 0.68rem; color: #2e7d32; background: #e8f5e9; padding: 1px 3px; border-radius: 2px; margin-top: auto; }
 
-    /* モーダル表示スタイルの強化 */
+    /* モーダル表示スタイル */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
     .modal.active { display: flex; }
     .modal-content { background: white; padding: 18px; border-radius: 10px; width: 95%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
     .modal-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; }
     .modal-header-bar h2 { font-size: 1.1rem; margin: 0; }
     
-    /* 閲覧モード専用スタイル */
+    /* 閲覧モードスタイル */
     .view-section { margin-bottom: 12px; }
     .view-label { font-size: 0.75rem; font-weight: bold; color: #777; margin-bottom: 3px; }
     .view-content-box { background: #f9f9f9; padding: 10px; border-radius: 6px; font-size: 0.95rem; line-height: 1.5; word-break: break-all; }
@@ -184,6 +183,7 @@
       <div class="view-section">
         <div class="view-label">ヘルスケア記録</div>
         <div class="view-content-box" id="view-health-text">未入力</div>
+      </div>
       <div class="view-section">
         <div class="view-label">日記</div>
         <div class="view-content-box view-diary-box" id="view-diary-text">未入力</div>
@@ -442,7 +442,7 @@ function resetDataAndReload() {
           if (item.event) {
             var b = document.createElement('div'); b.className = 'event-badge regular-badge'; b.textContent = item.event; cell.appendChild(b);
           }
-          }
+          /* カレンダー上の体重・体脂肪バッジ表示を削除 */
           if (item.diary) {
             var b = document.createElement('div'); b.className = 'diary-indicator'; b.textContent = '📖 日記あり'; cell.appendChild(b);
           }
@@ -472,12 +472,10 @@ function resetDataAndReload() {
     
     var info = getDayData()[dStr] || {};
     
-    // 閲覧モードにテキストを設定
     var evtText = document.getElementById('view-event-text');
     var healthText = document.getElementById('view-health-text');
     var diaryText = document.getElementById('view-diary-text');
     
-    // 恒例行事のチェック
     var mmdd = dStr.split('-').slice(1).join('-');
     var annuals = getAnnualData();
     var annualTitle = '';
@@ -492,6 +490,7 @@ function resetDataAndReload() {
       evtText.textContent = fullEvt.trim() ? fullEvt : 'なし';
     }
     
+    /* タップ後の詳細モーダル内でのみ体重・体脂肪を表示 */
     if (healthText) {
       var hStr = '';
       if (info.weight) hStr += '体重: ' + info.weight + ' kg ';
@@ -503,13 +502,11 @@ function resetDataAndReload() {
       diaryText.textContent = info.diary ? info.diary : '未入力';
     }
 
-    // フォームに初期値をセット
     if(document.getElementById('event-input')) document.getElementById('event-input').value = info.event || '';
     if(document.getElementById('weight-input')) document.getElementById('weight-input').value = info.weight || '';
     if(document.getElementById('fat-input')) document.getElementById('fat-input').value = info.fat || '';
     if(document.getElementById('diary-input')) document.getElementById('diary-input').value = info.diary || '';
 
-    // まず閲覧モードで表示
     showViewMode();
 
     var m = document.getElementById('day-modal'); 
