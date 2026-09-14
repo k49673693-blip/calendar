@@ -182,7 +182,8 @@
         <div class="view-content-box" id="view-event-text">なし</div>
       </div>
       <div class="view-section">
-      </div>
+        <div class="view-label">ヘルスケア記録</div>
+        <div class="view-content-box" id="view-health-text">未入力</div>
       <div class="view-section">
         <div class="view-label">日記</div>
         <div class="view-content-box view-diary-box" id="view-diary-text">未入力</div>
@@ -441,8 +442,6 @@ function resetDataAndReload() {
           if (item.event) {
             var b = document.createElement('div'); b.className = 'event-badge regular-badge'; b.textContent = item.event; cell.appendChild(b);
           }
-          if (item.weight || item.fat) {
-            var b = document.createElement('div'); b.className = 'health-badge'; b.textContent = '⚖️ ' + (item.weight||'') + ' ' + (item.fat||''); cell.appendChild(b);
           }
           if (item.diary) {
             var b = document.createElement('div'); b.className = 'diary-indicator'; b.textContent = '📖 日記あり'; cell.appendChild(b);
