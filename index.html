@@ -14,19 +14,14 @@
       --annual-color: #d32f2f;
       --saturday-color: #1976d2;
       --sunday-holiday-color: #d32f2f;
-      
-      /* 土日祝日用の薄い背景色 */
-      --sat-bg-color: #e3f2fd;       /* 薄い青 */
-      --sun-holiday-bg-color: #ffebee; /* 薄い赤 */
-      
-      /* 今日の日付用のカラー */
+      --sat-bg-color: #e3f2fd;
+      --sun-holiday-bg-color: #ffebee;
       --today-bg: #fff9c4;
       --today-border: #fbc02d;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); padding: 15px; }
-    
     .container { max-width: 900px; margin: 0 auto; }
     
     header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 15px; background: var(--card-bg); padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -36,8 +31,9 @@
     .btn { padding: 8px 12px; background: var(--primary-color); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
     .nav-btn { background: #eee; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold; }
     
-    /* エラー表示バー */
-    #error-bar { display: none; background: #f44336; color: white; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.85rem; }
+    /* エラー・非常用通知バー */
+    #error-bar { display: none; background: #ffebee; border: 1px solid #f44336; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem; line-height: 1.4; }
+    #error-bar button { margin-top: 8px; background: #d32f2f; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
 
     /* カレンダーグリッド */
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; background: var(--card-bg); padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); min-height: 400px; }
@@ -46,13 +42,11 @@
     .day-header.sun { color: var(--sunday-holiday-color); }
 
     .day-cell { min-height: 105px; background: #fff; border: 1px solid var(--border-color); border-radius: 5px; padding: 4px; cursor: pointer; display: flex; flex-direction: column; overflow: hidden; }
-    
-    /* マスの背景色設定 */
     .day-cell.sat-bg { background-color: var(--sat-bg-color); }
     .day-cell.sun-holiday-bg { background-color: var(--sun-holiday-bg-color); }
 
-    /* 今日ハイライト (最優先適用) */
-    .day-cell.is-today { background-color: var(--today-bg) !important; border: 2px solid var(--today-border); }
+    /* 今日ハイライト */
+    .day-cell.is-today { background-color: var(--today-bg) !important; border: 2px solid var(--today-border) !important; }
     .is-today .date-num span:first-child { background: var(--today-border); color: #000; padding: 2px 6px; border-radius: 10px; }
 
     .date-num { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
@@ -96,11 +90,15 @@
 <body>
 
 <div class="container">
-  <div id="error-bar"></div>
+  <div id="error-bar">
+    <div id="error-msg"></div>
+    <button onclick="resetDataAndReload()">保存データをクリアして再起動する</button>
+  </div>
+
   <header>
     <div class="nav-group">
       <button class="nav-btn" id="prev-month">&lt;</button>
-      <span id="month-display" style="font-size: 1.1rem; font-weight: bold; margin: 0 8px;">読込中...</span>
+      <span id="month-display" style="font-size: 1.1rem; font-weight: bold; margin: 0 8px;">---</span>
       <button class="nav-btn" id="next-month">&gt;</button>
     </div>
     <h1>日記＆ヘルスケア</h1>
@@ -113,7 +111,7 @@
   <div class="calendar-grid" id="calendar"></div>
 </div>
 
-<!-- モーダル群 -->
+<!-- 日記・予定入力モーダル -->
 <div class="modal" id="day-modal">
   <div class="modal-content">
     <h2 id="modal-date-title"></h2>
@@ -132,6 +130,7 @@
   </div>
 </div>
 
+<!-- 恒例行事モーダル -->
 <div class="modal" id="annual-modal">
   <div class="modal-content">
     <h2>毎年恒例の設定</h2>
@@ -149,6 +148,7 @@
   </div>
 </div>
 
+<!-- グラフモーダル -->
 <div class="modal" id="graph-modal">
   <div class="modal-content" style="max-width: 700px;">
     <h2>推移グラフ</h2>
@@ -163,6 +163,31 @@
 </div>
 
 <script>
+// グローバルエラー検知
+window.onerror = function(msg, url, line) {
+  showError('エラー検知: ' + msg + ' (' + line + '行目)');
+  return false;
+};
+
+function showError(text) {
+  var eb = document.getElementById('error-bar');
+  var em = document.getElementById('error-msg');
+  if (eb && em) {
+    em.textContent = text;
+    eb.style.display = 'block';
+  }
+}
+
+function resetDataAndReload() {
+  if (confirm('保存データをリセットしてアプリを再読み込みしますか？')) {
+    try {
+      localStorage.removeItem('calendar_diary_days');
+      localStorage.removeItem('calendar_diary_annual');
+    } catch(e) {}
+    location.reload();
+  }
+}
+
 (function() {
   var currentDate = new Date();
   var today = new Date();
@@ -171,32 +196,24 @@
   var STORAGE_KEY_DAYS = 'calendar_diary_days';
   var STORAGE_KEY_ANNUAL = 'calendar_diary_annual';
 
-  // 万が一のエラーを画面上に知らせる設定
-  window.onerror = function(msg, url, line) {
-    var eb = document.getElementById('error-bar');
-    if (eb) {
-      eb.style.display = 'block';
-      eb.textContent = 'エラーが発生しました: ' + msg + ' (' + line + '行目)';
-    }
-    return false;
-  };
-
   function safeAddEvent(id, eventType, callback) {
     var el = document.getElementById(id);
     if (el) { el.addEventListener(eventType, callback); }
   }
 
-  // ストレージから安全にデータを取得
-  function safeGetStorage(key, def) {
+  // ストレージから安全にデータを取り出す (二重型ガード)
+  function safeGetStorage(key, isArray) {
     try {
       var item = localStorage.getItem(key);
-      if (item === null || item === undefined || item === 'null' || item === 'undefined') {
-        return def;
-      }
+      if (!item) return isArray ? [] : {};
       var parsed = JSON.parse(item);
-      return (parsed !== null && parsed !== undefined) ? parsed : def;
+      if (isArray) {
+        return Array.isArray(parsed) ? parsed : [];
+      } else {
+        return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+      }
     } catch(e) {
-      return def;
+      return isArray ? [] : {};
     }
   }
 
@@ -204,139 +221,122 @@
     try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
   }
   
-  function getDayData() { 
-    var d = safeGetStorage(STORAGE_KEY_DAYS, {}); 
-    return (d && typeof d === 'object' && !Array.isArray(d)) ? d : {};
-  }
-  
-  function getAnnualData() { 
-    var a = safeGetStorage(STORAGE_KEY_ANNUAL, []); 
-    return Array.isArray(a) ? a : [];
-  }
+  function getDayData() { return safeGetStorage(STORAGE_KEY_DAYS, false); }
+  function getAnnualData() { return safeGetStorage(STORAGE_KEY_ANNUAL, true); }
 
-  // 祝日判定（固定祝日 + ハッピーマンデー + 春分・秋分）
+  // 祝日計算
   function getJapaneseHoliday(year, month, day) {
-    var mm = (month < 10 ? '0' : '') + month;
-    var dd = (day < 10 ? '0' : '') + day;
-    var mmdd = mm + '-' + dd;
+    try {
+      var mm = (month < 10 ? '0' : '') + month;
+      var dd = (day < 10 ? '0' : '') + day;
+      var mmdd = mm + '-' + dd;
 
-    var fixedHolidays = {
-      '01-01': '元日',
-      '02-11': '建国記念の日',
-      '02-23': '天皇誕生日',
-      '04-29': '昭和の日',
-      '05-03': '憲法記念日',
-      '05-04': 'みどりの日',
-      '05-05': 'こどもの日',
-      '08-11': '山の日',
-      '11-03': '文化の日',
-      '11-23': '勤労感謝の日'
-    };
-    if (fixedHolidays[mmdd]) return fixedHolidays[mmdd];
+      var fixedHolidays = {
+        '01-01': '元日', '02-11': '建国記念の日', '02-23': '天皇誕生日',
+        '04-29': '昭和の日', '05-03': '憲法記念日', '05-04': 'みどりの日',
+        '05-05': 'こどもの日', '08-11': '山の日', '11-03': '文化の日', '11-23': '勤労感謝の日'
+      };
+      if (fixedHolidays[mmdd]) return fixedHolidays[mmdd];
 
-    // 春分の日・秋分の日 (簡易計算)
-    if (month === 3) {
-      var vernal = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
-      if (day === vernal) return '春分の日';
-    }
-    if (month === 9) {
-      var autumnal = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
-      if (day === autumnal) return '秋分の日';
-    }
+      if (month === 3) {
+        var vernal = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+        if (day === vernal) return '春分の日';
+      }
+      if (month === 9) {
+        var autumnal = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+        if (day === autumnal) return '秋分の日';
+      }
 
-    // ハッピーマンデー判定 (第n月曜日)
-    var dateObj = new Date(year, month - 1, day);
-    if (dateObj.getDay() === 1) { // 月曜日
-      var nthOfWeek = Math.floor((day - 1) / 7) + 1;
-      if (month === 1 && nthOfWeek === 2) return '成人の日';
-      if (month === 7 && nthOfWeek === 3) return '海の日';
-      if (month === 9 && nthOfWeek === 3) return '敬老の日';
-      if (month === 10 && nthOfWeek === 2) return 'スポーツの日';
-    }
-
+      var dateObj = new Date(year, month - 1, day);
+      if (dateObj.getDay() === 1) {
+        var nthOfWeek = Math.floor((day - 1) / 7) + 1;
+        if (month === 1 && nthOfWeek === 2) return '成人の日';
+        if (month === 7 && nthOfWeek === 3) return '海の日';
+        if (month === 9 && nthOfWeek === 3) return '敬老の日';
+        if (month === 10 && nthOfWeek === 2) return 'スポーツの日';
+      }
+    } catch(e) {}
     return null;
   }
 
   function renderCalendar() {
-    var calendarEl = document.getElementById('calendar');
-    var monthDisplay = document.getElementById('month-display');
-    if (!calendarEl) return; 
+    try {
+      var calendarEl = document.getElementById('calendar');
+      var monthDisplay = document.getElementById('month-display');
+      if (!calendarEl) return; 
 
-    calendarEl.innerHTML = '';
-    var year = currentDate.getFullYear();
-    var month = currentDate.getMonth();
-    
-    if (monthDisplay) {
-      monthDisplay.textContent = year + '年 ' + (month + 1) + '月';
-    }
-
-    var daysOfWeek = [{n:'日',c:'sun'}, {n:'月',c:''}, {n:'火',c:''}, {n:'水',c:''}, {n:'木',c:''}, {n:'金',c:''}, {n:'土',c:'sat'}];
-    daysOfWeek.forEach(function(d) {
-      var h = document.createElement('div');
-      h.className = 'day-header ' + d.c;
-      h.textContent = d.n;
-      calendarEl.appendChild(h);
-    });
-
-    var firstDay = new Date(year, month, 1).getDay();
-    var lastDate = new Date(year, month + 1, 0).getDate();
-    for (var i = 0; i < firstDay; i++) {
-      calendarEl.appendChild(document.createElement('div'));
-    }
-
-    var dayData = getDayData();
-    var annualData = getAnnualData();
-    var ty = today.getFullYear(), tm = today.getMonth(), td = today.getDate();
-
-    for (var date = 1; date <= lastDate; date++) {
-      var cell = document.createElement('div');
-      cell.className = 'day-cell';
-
-      var dw = new Date(year, month, date).getDay();
-      var hol = getJapaneseHoliday(year, month + 1, date);
-
-      // 土日祝日の背景色
-      if (dw === 0 || hol) {
-        cell.classList.add('sun-holiday-bg');
-      } else if (dw === 6) {
-        cell.classList.add('sat-bg');
-      }
-
-      // 今日ハイライト
-      if (year === ty && month === tm && date === td) {
-        cell.classList.add('is-today');
-      }
-
-      var mm = (month + 1 < 10 ? '0' : '') + (month + 1);
-      var dd = (date < 10 ? '0' : '') + date;
-      var fKey = year + '-' + mm + '-' + dd;
-      var mmdd = mm + '-' + dd;
+      calendarEl.innerHTML = '';
+      var year = currentDate.getFullYear();
+      var month = currentDate.getMonth();
       
-      var dNum = document.createElement('div');
-      dNum.className = 'date-num ' + (dw === 0 || hol ? 'sun-holiday' : (dw === 6 ? 'sat' : ''));
-      dNum.innerHTML = '<span>' + date + '</span>' + (hol ? '<span class="holiday-name">' + hol + '</span>' : '');
-      cell.appendChild(dNum);
+      if (monthDisplay) {
+        monthDisplay.textContent = year + '年 ' + (month + 1) + '月';
+      }
 
-      // 恒例行事バッジ
-      annualData.filter(function(a){ return a && a.mmdd === mmdd; }).forEach(function(a){
-        var b = document.createElement('div'); b.className = 'event-badge annual-badge'; b.textContent = '★ ' + (a.title || ''); cell.appendChild(b);
+      var daysOfWeek = [{n:'日',c:'sun'}, {n:'月',c:''}, {n:'火',c:''}, {n:'水',c:''}, {n:'木',c:''}, {n:'金',c:''}, {n:'土',c:'sat'}];
+      daysOfWeek.forEach(function(d) {
+        var h = document.createElement('div');
+        h.className = 'day-header ' + d.c;
+        h.textContent = d.n;
+        calendarEl.appendChild(h);
       });
 
-      // 通常データ
-      if (dayData[fKey]) {
-        if (dayData[fKey].event) {
-          var b = document.createElement('div'); b.className = 'event-badge regular-badge'; b.textContent = dayData[fKey].event; cell.appendChild(b);
-        }
-        if (dayData[fKey].weight || dayData[fKey].fat) {
-          var b = document.createElement('div'); b.className = 'health-badge'; b.textContent = '⚖️ ' + (dayData[fKey].weight||'') + ' ' + (dayData[fKey].fat||''); cell.appendChild(b);
-        }
-        if (dayData[fKey].diary) {
-          var b = document.createElement('div'); b.className = 'diary-indicator'; b.textContent = '📖 日記あり'; cell.appendChild(b);
-        }
+      var firstDay = new Date(year, month, 1).getDay();
+      var lastDate = new Date(year, month + 1, 0).getDate();
+      for (var i = 0; i < firstDay; i++) {
+        calendarEl.appendChild(document.createElement('div'));
       }
 
-      (function(k){ cell.onclick = function(){ openDayModal(k); }; })(fKey);
-      calendarEl.appendChild(cell);
+      var dayData = getDayData();
+      var annualData = getAnnualData();
+      var ty = today.getFullYear(), tm = today.getMonth(), td = today.getDate();
+
+      for (var date = 1; date <= lastDate; date++) {
+        var cell = document.createElement('div');
+        cell.className = 'day-cell';
+
+        var dw = new Date(year, month, date).getDay();
+        var hol = getJapaneseHoliday(year, month + 1, date);
+
+        if (dw === 0 || hol) cell.classList.add('sun-holiday-bg');
+        else if (dw === 6) cell.classList.add('sat-bg');
+
+        if (year === ty && month === tm && date === td) cell.classList.add('is-today');
+
+        var mm = (month + 1 < 10 ? '0' : '') + (month + 1);
+        var dd = (date < 10 ? '0' : '') + date;
+        var fKey = year + '-' + mm + '-' + dd;
+        var mmdd = mm + '-' + dd;
+        
+        var dNum = document.createElement('div');
+        dNum.className = 'date-num ' + (dw === 0 || hol ? 'sun-holiday' : (dw === 6 ? 'sat' : ''));
+        dNum.innerHTML = '<span>' + date + '</span>' + (hol ? '<span class="holiday-name">' + hol + '</span>' : '');
+        cell.appendChild(dNum);
+
+        // 恒例行事
+        annualData.filter(function(a){ return a && a.mmdd === mmdd; }).forEach(function(a){
+          var b = document.createElement('div'); b.className = 'event-badge annual-badge'; b.textContent = '★ ' + (a.title || ''); cell.appendChild(b);
+        });
+
+        // 日常データ
+        if (dayData[fKey]) {
+          var item = dayData[fKey];
+          if (item.event) {
+            var b = document.createElement('div'); b.className = 'event-badge regular-badge'; b.textContent = item.event; cell.appendChild(b);
+          }
+          if (item.weight || item.fat) {
+            var b = document.createElement('div'); b.className = 'health-badge'; b.textContent = '⚖️ ' + (item.weight||'') + ' ' + (item.fat||''); cell.appendChild(b);
+          }
+          if (item.diary) {
+            var b = document.createElement('div'); b.className = 'diary-indicator'; b.textContent = '📖 日記あり'; cell.appendChild(b);
+          }
+        }
+
+        (function(k){ cell.onclick = function(){ openDayModal(k); }; })(fKey);
+        calendarEl.appendChild(cell);
+      }
+    } catch(err) {
+      showError('カレンダー描画エラー: ' + err.message);
     }
   }
 
@@ -401,11 +401,7 @@
 
     var validData = keys.map(function(k) {
       var item = dayData[k] || {};
-      return {
-        date: k,
-        w: parseFloat(item.weight) || null,
-        f: parseFloat(item.fat) || null
-      };
+      return { date: k, w: parseFloat(item.weight) || null, f: parseFloat(item.fat) || null };
     }).filter(function(d) { return d.w !== null || d.f !== null; });
 
     if (validData.length === 0) {
@@ -426,7 +422,6 @@
     var maxF = fValues.length ? Math.max.apply(null, fValues) + 1 : 50;
 
     var svgHtml = '<svg width="100%" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" style="background:#fff;">';
-    
     svgHtml += '<line x1="' + padding + '" y1="' + (height - padding) + '" x2="' + (width - padding) + '" y2="' + (height - padding) + '" stroke="#ccc" />';
     svgHtml += '<text x="' + padding + '" y="20" fill="#1976d2" font-size="12">■ 体重(kg)</text>';
     svgHtml += '<text x="' + (padding + 100) + '" y="20" fill="#f57c00" font-size="12">■ 体脂肪率(%)</text>';
@@ -437,7 +432,6 @@
 
     validData.forEach(function(d, i) {
       var x = validData.length === 1 ? width / 2 : padding + i * stepX;
-
       if (d.w !== null) {
         var yW = (height - padding) - ((d.w - minW) / (maxW - minW || 1)) * (height - padding * 2);
         pointsW.push(x + ',' + yW);
@@ -450,20 +444,5 @@
       }
     });
 
-    if (pointsW.length > 1) {
-      svgHtml += '<polyline points="' + pointsW.join(' ') + '" fill="none" stroke="#1976d2" stroke-width="2" />';
-    }
-    if (pointsF.length > 1) {
-      svgHtml += '<polyline points="' + pointsF.join(' ') + '" fill="none" stroke="#f57c00" stroke-width="2" />';
-    }
-
-    svgHtml += '</svg>';
-    container.innerHTML = svgHtml;
-  }
-
-  function initApp() {
-    safeAddEvent('prev-month', 'click', function(){ currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); });
-    safeAddEvent('next-month', 'click', function(){ currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); });
-    
-    safeAddEvent('close-day-modal', 'click', function(){ document.getElementById('day-modal').classList.remove('active'); });
-    safeAddE
+    if (pointsW.length > 1) svgHtml += '<polyline points="' + pointsW.join(' ') + '" fill="none" stroke="#1976d2" stroke-width="2" />';
+    if (pointsF.length > 1) svgHtml += '<polyline points="' + pointsF.join(' ') + '" fill="none" stroke="#f57c00" stroke-w
